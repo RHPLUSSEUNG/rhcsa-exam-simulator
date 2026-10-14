@@ -12,6 +12,9 @@ The TUI is read-only: candidates do the work in a separate shell/SSH session,
 exactly like the real exam's "Exam View" window.
 """
 import argparse, curses, json, os, re, subprocess, textwrap, time
+import sys, locale
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))
+import i18n
 
 ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 
@@ -25,7 +28,10 @@ def load_meta(tasks_dir, tid):
             m[k] = v.strip()
     return m
 
-def load_prompt(tasks_dir, tid, prompts_dir=None):
+def load_prompt(tasks_dir, tid, prompts_dir=None, lang=None):
+    if (lang or i18n.language()) != 'en':
+        state = os.path.dirname(prompts_dir) if prompts_dir else None
+        return i18n.task_text(tasks_dir, tid, 'prompt', state, lang).rstrip('\n')
     # Prefer the per-session rendered prompt (parameter placeholders substituted).
     if prompts_dir:
         rp = os.path.join(prompts_dir, tid + ".txt")
@@ -63,6 +69,7 @@ class Exam:
         self.practice = bool(self.state_dir and os.path.exists(os.path.join(self.state_dir, "practice.flag"))) \
             or (self.exam.startswith("practice-") and not self.exam.startswith("practice-drill"))
         self.meta = [load_meta(tasks_dir, t) for t in self.tasks]
+        self.lang = i18n.language(self.state_dir)
         self.marked = [False] * len(self.tasks)
         self.check_cache = {}
         self.status = {}            # tid -> True/False from `check` (practice only)
@@ -95,6 +102,9 @@ class Exam:
 
     def aid_text(self, kind, tid):
         """Return hint/solution text for a task (pre-rendered at practice seed)."""
+        localized = i18n.task_text(self.tasks_dir, tid, kind[:-1], self.state_dir, self.lang)
+        if localized:
+            return localized.rstrip('\n')
         p = os.path.join(self.state_dir or "", kind, tid + ".txt")
         if self.state_dir and os.path.isfile(p):
             return open(p, encoding="utf-8", errors="replace").read().rstrip("\n")
@@ -108,8 +118,8 @@ class Exam:
         if not os.access(exe, os.X_OK):
             exe = "rhcsa-sim"
         try:
-            r = subprocess.run([exe, "check", tid],
-                               capture_output=True, text=True, timeout=120)
+            r = subprocess.run([exe, "--lang", "en", "check", tid],
+                               capture_output=True, text=True, encoding='utf-8', timeout=120)
             out = ANSI_RE.sub("", (r.stdout or "") + (r.stderr or "")).strip()
         except Exception as e:  # noqa: BLE001 — show whatever went wrong
             out = f"(check failed to run: {e})"
@@ -118,6 +128,27 @@ class Exam:
         return self.check_cache[tid]
 
 def draw(stdscr, ex):
+    class Screen:
+        """Keep curses coordinates in terminal cells, including CJK text."""
+        def __getattr__(self, name):
+            return getattr(self.raw, name)
+        def addnstr(self, y, x, text, count, attr=0, translate=True):
+            h, w = self.raw.getmaxyx()
+            if 0 <= y < h and 0 <= x < w:
+                if translate:
+                    text = i18n.display(text, ex.state_dir, ex.lang)
+                try:
+                    self.raw.addstr(y, x, i18n.clip(text, min(count, w - x - 1)), attr)
+                except curses.error:
+                    pass
+        def addch(self, y, x, char):
+            h, w = self.raw.getmaxyx()
+            if 0 <= y < h and 0 <= x < w - 1:
+                try:
+                    self.raw.addch(y, x, char)
+                except curses.error:
+                    pass
+    screen = Screen(); screen.raw = stdscr; stdscr = screen
     curses.curs_set(0)
     stdscr.nodelay(True)
     stdscr.timeout(500)
@@ -142,6 +173,12 @@ def draw(stdscr, ex):
     while True:
         stdscr.erase()
         h, w = stdscr.getmaxyx()
+        if not ex.tasks or h < 8 or w < 50:
+            stdscr.addnstr(0, 0, 'Terminal too small (minimum 50x8). q quit', max(0, w - 1))
+            stdscr.refresh()
+            if stdscr.getch() in (ord('q'), ord('Q')):
+                break
+            continue
         left_w = max(28, min(40, w // 3))
         # ---- Header ----
         rem = ex.remaining()
@@ -164,14 +201,17 @@ def draw(stdscr, ex):
         pace = f"~{max(0, rem) / 60 / n_left:.1f}m/task · "   # leftmost: never truncated
         if ex.practice:
             done_hint = pace + ("↑↓ u/d scroll · h hint · s solution · c check · "
-                                "p check ALL · m mark · q quit")
+                                "p check ALL · m mark · l language · q quit")
         else:
-            done_hint = pace + "↑↓ select · u/d scroll · m mark · r refresh · q quit"
+            done_hint = pace + "↑↓ select · u/d scroll · m mark · r refresh · l language · q quit"
         stdscr.addnstr(h - 1, 0, done_hint.ljust(w - 1)[:w - 1], w - 1, curses.A_DIM)
 
         # ---- Left: task list ----
-        for i, meta in enumerate(ex.meta):
-            if i + 2 >= h - 1:
+        first = max(0, sel - (h - 5))
+        for i in range(first, len(ex.meta)):
+            meta = ex.meta[i]
+            y = i - first + 2
+            if y >= h - 1:
                 break
             mark = "⚑" if ex.marked[i] else " "
             tag = ""
@@ -180,8 +220,7 @@ def draw(stdscr, ex):
             st = " "
             if ex.practice and ex.tasks[i] in ex.status:   # ✓/✗ from check (practice only)
                 st = "✓" if ex.status[ex.tasks[i]] else "✗"
-            label = f"{mark}{st}{i+1:>2}.{tag} {meta['TASK_TITLE']}"
-            label = label[:left_w - 1].ljust(left_w - 1)
+            label = f"{mark}{st}{i+1:>2}.{tag} {i18n.title(ex.tasks[i], meta['TASK_TITLE'], ex.lang)}"
             attr = curses.A_NORMAL
             if i == sel:
                 attr = curses.color_pair(5) | curses.A_BOLD
@@ -191,7 +230,7 @@ def draw(stdscr, ex):
                 attr = curses.color_pair(3)
             elif ex.marked[i]:
                 attr = curses.color_pair(4)
-            stdscr.addnstr(i + 2, 0, label, left_w - 1, attr)
+            stdscr.addnstr(y, 0, label, left_w - 1, attr)
         # vertical divider
         for y in range(2, h - 1):
             stdscr.addch(y, left_w, curses.ACS_VLINE)
@@ -204,7 +243,7 @@ def draw(stdscr, ex):
         # The real Exam View shows no point values or domain tags — keep exam
         # sessions faithful; practice sessions show them (useful for studying).
         ptag = f"  [{meta['TASK_DOMAIN']}, {meta['TASK_POINTS']} pts]" if ex.practice else ""
-        head = f"Task {sel+1}/{len(ex.tasks)} — {meta['TASK_TITLE']}{vtag}{ptag}"
+        head = f"Task {sel+1}/{len(ex.tasks)} — {i18n.title(ex.tasks[sel], meta['TASK_TITLE'], ex.lang)}{vtag}{ptag}"
         hcol = curses.color_pair(1) if view == "prompt" else curses.color_pair(4)
         stdscr.addnstr(2, rx, head[:rw], rw, curses.A_BOLD | hcol)
         tid = ex.tasks[sel]
@@ -215,26 +254,21 @@ def draw(stdscr, ex):
         elif view == "check":
             body = ex.check_cache.get(tid, "(press c to check this task)")
         else:
-            body = load_prompt(ex.tasks_dir, tid, ex.prompts_dir)
+            body = load_prompt(ex.tasks_dir, tid, ex.prompts_dir, ex.lang)
         # In two-node mode, banner WHICH machine this task must be performed on.
         if view == "prompt" and ex.two_node and ex.nodes[sel]:
             node = ex.nodes[sel]
             banner = ("▶ PERFORM ON THIS MACHINE (node1)" if node == "node1"
                       else "▶ PERFORM ON node2  →  ssh student@node2.example.com, then sudo -i")
             body = banner + "\n" + ("-" * min(rw, 50)) + "\n\n" + body
-        lines = []
-        for para in body.split("\n"):
-            if not para.strip():
-                lines.append("")
-            else:
-                lines.extend(textwrap.wrap(para, rw) or [""])
+        lines = i18n.wrap(i18n.display(body, ex.state_dir, ex.lang) if view == 'check' else body, rw)
         view_h = h - 5
         scroll = max(0, min(scroll, max(0, len(lines) - view_h)))
         for j in range(view_h):
             idx = scroll + j
             if idx >= len(lines):
                 break
-            stdscr.addnstr(4 + j, rx, lines[idx][:rw], rw)
+            stdscr.addnstr(4 + j, rx, lines[idx], rw, translate=False)
         if len(lines) > view_h:
             stdscr.addnstr(h - 2, rx, f"-- {scroll+1}-{min(scroll+view_h,len(lines))}/{len(lines)} --",
                            rw, curses.A_DIM)
@@ -249,6 +283,11 @@ def draw(stdscr, ex):
             ex.add_time(ex.tasks[sel], time.monotonic() - sel_t0)
             ex.save_times()
             break
+        elif ch in (ord('l'), ord('L')):
+            ex.lang = i18n.LANGUAGES[(i18n.LANGUAGES.index(ex.lang) + 1) % len(i18n.LANGUAGES)]
+            if ex.state_dir:
+                i18n.save_language(ex.state_dir, ex.lang)
+            scroll = 0
         elif ch in (curses.KEY_DOWN, ord('j')):
             switch_sel(min(len(ex.tasks) - 1, sel + 1))
         elif ch in (curses.KEY_UP, ord('k')):
@@ -287,15 +326,18 @@ def main():
     ap.add_argument("--tasks", required=True)
     ap.add_argument("--prompts", default=None)
     ap.add_argument("--state", default=None)
+    ap.add_argument("--lang", choices=i18n.LANGUAGES)
     a = ap.parse_args()
     if not os.path.isfile(a.session):
         print("No active session."); return
     ex = Exam(a.session, a.tasks, a.prompts, a.state)
+    ex.lang = i18n.language(a.state, a.lang)
+    locale.setlocale(locale.LC_ALL, '')
     curses.wrapper(draw, ex)
     rem = ex.remaining()
-    print(f"Exam paper closed. Time remaining: "
-          f"{max(0,rem)//3600:02d}:{(max(0,rem)%3600)//60:02d}:{max(0,rem)%60:02d}")
-    print("The exam is still active. Grade with:  rhcsa-sim grade --reboot")
+    print(i18n.display(f"Exam paper closed. Time remaining: "
+          f"{max(0,rem)//3600:02d}:{(max(0,rem)%3600)//60:02d}:{max(0,rem)%60:02d}", lang=ex.lang))
+    print(i18n.display("The exam is still active. Grade with:  rhcsa-sim grade --reboot", lang=ex.lang))
 
 if __name__ == "__main__":
     main()

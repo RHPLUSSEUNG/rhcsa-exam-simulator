@@ -15,6 +15,9 @@ Scoring model (exam-accurate):
   * Exam total is normalised to 300; pass mark default 70% (210/300).
 """
 import argparse, json, os, re, sys, time, html, datetime
+import contextlib, io
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))
+import i18n
 
 C = dict(red="\033[31m", grn="\033[32m", yel="\033[33m", blu="\033[34m",
          bold="\033[1m", dim="\033[2m", off="\033[0m")
@@ -108,7 +111,7 @@ def print_text(r):
         print(f"    {row['title']}")
         for c in row["checkpoints"]:
             mark = col("✓", "grn") if c.get("ok") else col("✗", "red")
-            line = f"      {mark} {c.get('checkpoint','')}  ({c.get('points',0)}/{c.get('max',0)})"
+            line = f"      {mark} {i18n.checkpoint(c.get('checkpoint',''))}  ({c.get('points',0)}/{c.get('max',0)})"
             if not c.get("ok") and c.get("detail"):
                 line += col(f"   [{c['detail']}]", "dim")
             print(line)
@@ -164,7 +167,7 @@ def write_html(r, reports_dir, stamp):
         cls = "pass" if row["all_ok"] else ("fail" if row["graded"] else "")
         cps = "".join(
             f'<div class="cp"><span class="{ "ok" if c.get("ok") else "no" }">'
-            f'{ "✓" if c.get("ok") else "✗" }</span> {html.escape(str(c.get("checkpoint","")))} '
+            f'{ "✓" if c.get("ok") else "✗" }</span> {html.escape(i18n.checkpoint(str(c.get("checkpoint",""))))} '
             f'({c.get("points",0)}/{c.get("max",0)})'
             f'{ "" if c.get("ok") or not c.get("detail") else " — "+html.escape(str(c["detail"])) }</div>'
             for c in row["checkpoints"])
@@ -191,7 +194,7 @@ def write_html(r, reports_dir, stamp):
         psum=r["partial_sum"], pmax=r["partial_max"],
         rows="\n".join(rows_html), domains="\n".join(doms))
     path = os.path.join(reports_dir, f"report-{stamp}.html")
-    open(path, "w", encoding="utf-8").write(out)
+    open(path, "w", encoding="utf-8").write(i18n.html_display(out))
     return path
 
 def main():
@@ -204,7 +207,10 @@ def main():
     ap.add_argument("--html", action="store_true")
     ap.add_argument("--json", action="store_true", help="print a one-line summary as JSON (for --combined)")
     ap.add_argument("--label", default="", help="role/node label for JSON output")
+    ap.add_argument('--lang', choices=i18n.LANGUAGES)
     a = ap.parse_args()
+    if a.lang:
+        os.environ['RHCSA_LANG'] = a.lang
     r = grade(a.session, a.tasks, a.results, a.passpct)
     if a.json:
         import json as _j
@@ -212,7 +218,10 @@ def main():
                         "earned": r["earned_binary"], "max": r["total_max"],
                         "score300": r["score300"], "pct": r["pct"], "passed": r["passed"]}))
         sys.exit(0 if r["passed"] else 2)
-    print_text(r)
+    text = io.StringIO()
+    with contextlib.redirect_stdout(text):
+        print_text(r)
+    print(i18n.display(text.getvalue()), end='')
     stamp = write_outputs(r, a.reports)
     if a.html:
         p = write_html(r, a.reports, stamp)

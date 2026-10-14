@@ -11,11 +11,21 @@ Test Exam", a pale-yellow/salmon "Time remaining" box, "Select Language"), and a
 cream serif main area with "Configuration Information" + per-host task groups, each
 task a "Configure your system NN" link with Revisit/Done radios.
 """
-import argparse, html, json, os, pwd, re, subprocess, sys, time, urllib.parse, webbrowser
+import argparse, html, json, os, re, subprocess, sys, time, urllib.parse, webbrowser
+try:
+    import pwd
+except ImportError:  # Allows read-only presentation tests on Windows.
+    pwd = None
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))
+import i18n
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 ARGS = None
+
+
+def current_lang():
+    return i18n.language(ARGS.state, getattr(ARGS, 'lang', None))
 
 
 # ----------------------------------------------------------------- data helpers
@@ -81,10 +91,13 @@ def meta(tid):
             mt = re.match(r'\s*(TASK_TITLE|TASK_DOMAIN|TASK_POINTS)=("?)(.*?)\2\s*$', ln.rstrip("\n"))
             if mt:
                 m[mt.group(1)] = mt.group(3)
+    m['TASK_TITLE'] = i18n.title(tid, m['TASK_TITLE'], current_lang())
     return m
 
 
 def prompt_text(tid):
+    if current_lang() != 'en':
+        return i18n.task_text(ARGS.tasks, tid, 'prompt', ARGS.state, current_lang())
     for p in (os.path.join(ARGS.prompts, tid + ".txt"),
               os.path.join(ARGS.tasks, tid, "prompt.txt")):
         if os.path.isfile(p):
@@ -93,6 +106,10 @@ def prompt_text(tid):
 
 
 def aid_file(kind, tid):
+    if current_lang() != 'en':
+        text = i18n.task_text(ARGS.tasks, tid, kind, ARGS.state, current_lang())
+        if text:
+            return text
     base = ARGS.hints if kind == "hint" else ARGS.solutions
     p = os.path.join(base, tid + ".txt")
     if os.path.isfile(p):
@@ -153,7 +170,7 @@ def save_marks(m):
 def run_cli(args, timeout=180):
     """Run the rhcsa-sim CLI; return (clean_text, rc)."""
     try:
-        r = subprocess.run([ARGS.bin] + list(args), capture_output=True, text=True,
+        r = subprocess.run([ARGS.bin, '--lang', current_lang()] + list(args), capture_output=True, text=True, encoding='utf-8',
                            timeout=timeout, stdin=subprocess.DEVNULL)
         return ANSI.sub("", (r.stdout or "") + (r.stderr or "")), r.returncode
     except Exception as e:
@@ -241,7 +258,7 @@ body { margin:0; font-family: Georgia,'Times New Roman',serif; color:#111; backg
 #side a, .main a { color:#1a0dab; }
 .lang { font-size:14px; }
 .count { color:#555; font-size:12px; margin-top:10px; }
-.main { flex:1; padding:22px 30px; max-width:900px; }
+.main { flex:1; padding:22px 30px; max-width:900px; min-width:0; overflow-wrap:anywhere; }
 .main h2 { font-size:20px; margin:0 0 6px; }
 .main p.intro { margin:4px 0 10px; }
 hr { border:0; border-top:1px solid #cfcfb8; margin:16px 0; }
@@ -253,6 +270,7 @@ hr { border:0; border-top:1px solid #cfcfb8; margin:16px 0; }
 .row a { font-size:16px; }
 .biglink { font-size:18px; font-weight:bold; }
 pre { background:#fbfbf0; border:1px solid #ddd; padding:12px; white-space:pre-wrap;
+      overflow-wrap:anywhere;
       font-family:'DejaVu Sans Mono',monospace; font-size:14px; line-height:1.4; }
 .cmd { background:#fbfbf0; border:1px solid #ddd; border-left:4px solid #cc0000; padding:10px 12px;
        white-space:pre-wrap; font-family:'DejaVu Sans Mono',monospace; font-size:14px; line-height:1.5; margin:8px 0; }
@@ -272,6 +290,8 @@ pre { background:#fbfbf0; border:1px solid #ddd; padding:12px; white-space:pre-w
 .note { color:#666; font-size:13px; }
 #out { margin-top:14px; }
 .done { color:#0a0; } .revisit { color:#c80; }
+@media (max-width:600px) { #wrap { flex-direction:column; } #side { width:100%; min-width:0; }
+  .main { padding:16px; } }
 """
 
 SHADOWMAN = """<svg class="logo" viewBox="0 0 120 86" width="104" height="74" aria-label="Red Hat">
@@ -284,10 +304,14 @@ SHADOWMAN = """<svg class="logo" viewBox="0 0 120 86" width="104" height="74" ar
 
 def sidebar(sess):
     p = paper(sess)
-    # English-only content; render a real (single-option) selector instead of a
-    # dead link so it shows an option and never looks broken.
+    options = ''.join('<option value="%s"%s>%s</option>' %
+                      (code, ' selected' if current_lang() == code else '', html.escape(name))
+                      for code, name in i18n.LANGUAGE_NAMES.items())
     lang = ('<span class="lang">Select Language: '
-            '<select onchange="this.selectedIndex=0"><option>English</option></select></span>')
+            '<select aria-label="Language" onchange="fetch(\'/api/language\', '
+            '{method:\'POST\',headers:{\'Content-Type\':\'application/x-www-form-urlencoded\'},'
+            'body:\'lang=\'+this.value}).then(r=>{if(r.ok)location.reload();})">'
+            '%s</select></span>' % options)
     return """<div id="side">
   %s
   <h1>Red Hat<br>Test Exam</h1>
@@ -316,9 +340,10 @@ function postMark(id,st){ fetch('/api/mark',{method:'POST',headers:{'Content-Typ
 
 
 def page(title, sess, body):
-    return ("<!doctype html><html><head><meta charset='utf-8'><title>%s</title>"
+    out = ("<!doctype html><html><head><meta charset='utf-8'><title>%s</title>"
             "<style>%s</style></head><body><div id='wrap'>%s<div class='main'>%s</div></div>%s"
             "</body></html>") % (html.escape(title), CSS, sidebar(sess), body, timer_js(sess))
+    return i18n.html_display(out, current_lang())
 
 
 def report_ready_banner():
@@ -518,13 +543,14 @@ def vm_page():
 <script>
 var NODE=null;
 var ACTS=['Status','Start','Reboot','Shutdown','Hard Reboot','Console','Rebuild'];
+var LABELS=%s;
 function out(t){ document.getElementById('out').innerHTML='<pre>'+t.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</pre>'; }
 function pick(n){
   NODE=n;
   var h='<h2>'+n+'</h2>';
   for(var i=0;i<ACTS.length;i++){ var a=ACTS[i];
     var cls=(a=='Rebuild')?'btn red':((a=='Shutdown'||a=='Hard Reboot')?'btn warn':'btn');
-    h+='<button class="'+cls+'" data-act="'+a+'">'+a+' '+n+' VM</button>'; }
+    h+='<button class="'+cls+'" data-act="'+a+'">'+(LABELS[a]||a)+' '+n+' VM</button>'; }
   h+='<br><button class="btn" data-act="__close">Close</button>';
   var menu=document.getElementById('menu');
   menu.innerHTML=h; menu.style.display='block'; document.getElementById('out').innerHTML='';
@@ -535,20 +561,22 @@ function act(a){
   if(a=='__close'){ document.getElementById('menu').style.display='none'; document.getElementById('out').innerHTML=''; return; }
   var action=a.toLowerCase().replace(' ','-'); var extra='';
   if(a=='Rebuild'||a=='Reboot'||a=='Hard Reboot'||a=='Shutdown'){
-    var msg=(a=='Rebuild')?('Rebuild '+NODE+" will ERASE all your work on it and restore the exam's initial state.")
-            :(a+' '+NODE+'. If this is the system you are using, it ends your current exam view'+((a=='Shutdown')?' and the node must be powered back on from your hypervisor (it cannot be started from inside the exam)':'')+'.');
+    var msg=(a=='Rebuild')?((LABELS[a]||a)+' '+NODE+" will ERASE all your work on it and restore the exam's initial state.")
+            :((LABELS[a]||a)+' '+NODE+'. If this is the system you are using, it ends your current exam view'+((a=='Shutdown')?' and the node must be powered back on from your hypervisor (it cannot be started from inside the exam)':'')+'.');
     var c=prompt(msg+'\\nType CONFIRM (all caps) to proceed:');
     if(c!=='CONFIRM'){ out('cancelled'); return; }
     extra='&confirm=CONFIRM';
   }
-  out(a+' '+NODE+' ...');
+  out((LABELS[a]||a)+' '+NODE+' ...');
   fetch('/api/vm',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
     body:'node='+encodeURIComponent(NODE)+'&action='+action+extra}).then(function(r){return r.text();}).then(out);
 }
 </script>
 <p class='note'>Console opens a terminal SSH session to the node; Rebuild restores the node to
 the exam's initial state (your work on it is erased).</p>
-<p><a class='btn' href='/'>&larr; Back to exam paper</a></p>""" % cards
+<p><a class='btn' href='/'>&larr; Back to exam paper</a></p>""" % (cards, json.dumps(
+        {a: i18n.catalog('messages', current_lang()).get(a, a) for a in
+         ['Status', 'Start', 'Reboot', 'Shutdown', 'Hard Reboot', 'Console', 'Rebuild']}, ensure_ascii=False))
     return page("Select a VM to control", sess, body)
 
 
@@ -602,6 +630,10 @@ class H(BaseHTTPRequestHandler):
         pass
 
     def _send(self, body, ctype="text/html; charset=utf-8", code=200):
+        if isinstance(body, str) and ctype.startswith('text/plain'):
+            body = i18n.display(body, ARGS.state, current_lang())
+            if 'charset=' not in ctype:
+                ctype += '; charset=utf-8'
         b = body.encode("utf-8") if isinstance(body, str) else body
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -647,7 +679,15 @@ class H(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         f = self._body()
         one = lambda k: f.get(k, [""])[0]
-        if u.path == "/api/mark":
+        if u.path == '/api/language':
+            lang = one('lang')
+            if lang not in i18n.LANGUAGES:
+                self._send('지원 언어: ko, en', 'text/plain; charset=utf-8', 400)
+                return
+            i18n.save_language(ARGS.state, lang)
+            ARGS.lang = lang
+            self._send('ok', 'text/plain; charset=utf-8')
+        elif u.path == "/api/mark":
             tid, st = one("id"), one("state")
             m = load_marks()
             if st in ("done", "revisit"):
@@ -683,7 +723,7 @@ class H(BaseHTTPRequestHandler):
             self._send(out or "(graded — see Report)", "text/plain")
         elif u.path == "/api/grade-reboot":
             try:
-                subprocess.Popen([ARGS.bin, "grade", "--reboot"], stdin=subprocess.DEVNULL,
+                subprocess.Popen([ARGS.bin, '--lang', current_lang(), "grade", "--reboot"], stdin=subprocess.DEVNULL,
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 self._send("Grading with reboot initiated — the system will reboot shortly. "
                            "Log back in and the report opens automatically.", "text/plain")
@@ -705,6 +745,7 @@ def main():
     ap.add_argument("--bin", default="rhcsa-sim")
     ap.add_argument("--port", type=int, default=8200)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument('--lang', choices=i18n.LANGUAGES)
     ARGS = ap.parse_args()
 
     srv = None
