@@ -91,6 +91,53 @@ Flatpak and timer tasks are verified to survive it.
 
 ## Usage
 
+### 한국어 / English
+
+기본 언어는 **한국어(ko)**입니다. 기존 명령과 옵션은 그대로 사용할 수 있으며,
+`--lang`은 명령 앞이나 뒤에 지정할 수 있습니다.
+
+```bash
+sudo rhcsa-sim start exam-01           # 기본 한국어 (RHEL 10: exam-r10-01)
+sudo rhcsa-sim tui                    # 브라우저 시험 화면
+sudo rhcsa-sim --lang ko tui --text    # 한국어 터미널 시험 화면
+sudo rhcsa-sim --lang en tui           # 영어 브라우저 시험 화면
+sudo rhcsa-sim tui --text --lang en    # 영어 터미널 시험 화면
+sudo rhcsa-sim --lang ko hint 1        # 연습용 힌트
+sudo rhcsa-sim --lang en solution 1    # 영어 참고 풀이
+sudo rhcsa-sim --lang ko report        # 한국어 채점 결과
+```
+
+브라우저의 **언어 선택** 메뉴 또는 터미널 UI의 **l** 키로 진행 중에도 전환할 수
+있습니다. 언어 변경은 시험 문제 ID, 남은 시간, 생성된 값, 표시 상태 및 채점 결과를
+변경하지 않습니다. 시험/mock/drill의 도움말 제한도 그대로 유지됩니다.
+
+```bash
+sudo rhcsa-sim lang ko                # 한국어를 저장된 기본 설정으로 사용
+sudo rhcsa-sim lang en                # 영어를 저장된 기본 설정으로 사용
+sudo rhcsa-sim lang                   # 현재 적용 언어 확인
+sudo env RHCSA_LANG=en rhcsa-sim help  # 환경 변수로 언어 지정
+```
+
+적용 우선순위는 **`--lang` → `RHCSA_LANG` → 저장 설정 → ko**입니다. CLI의
+`--lang`은 해당 실행에만 적용합니다. `lang` 명령과 UI에서 변경한 설정은
+`/var/lib/rhcsa-sim/language`에 저장되며 일반 `reset` 후에도 유지됩니다.
+번역이 없는 문자열은 영어 원문으로 표시합니다. 명령어·설정 값·실행 가능한 코드
+블록과 외부 명령의 원시 진단 출력은 원문을 유지합니다.
+
+한글이 깨지면 터미널 인코딩을 UTF-8로 설정하고 한글 글꼴(예: Noto Sans CJK KR)을
+선택하십시오. 시스템에서 사용 가능한 UTF-8 로케일은 `locale -a`로 확인하고, 실행
+시 지정할 수 있습니다. 시험에서 요구하는 시스템 로케일 설정은 바꾸지 마십시오.
+
+```bash
+sudo env LC_ALL=C.UTF-8 rhcsa-sim tui --text  # C.UTF-8이 설치된 시스템에서
+```
+
+터미널 UI는 최소 **50열 × 8행**이 필요합니다. 넓은 화면을 권장하며 문제 본문은
+`u`/`d` 또는 PgUp/PgDn으로 스크롤합니다. 터미널 글꼴의 실제 문자 폭이 표준과
+다르면 브라우저 화면(`sudo rhcsa-sim tui`)을 사용하십시오.
+
+번역 구조, 보호한 데이터와 검증 범위: [한국어 현지화 문서](docs/LOCALIZATION.md).
+
 ```bash
 sudo rhcsa-sim doctor            # check the environment is ready
 sudo rhcsa-sim start exam-01     # seed a 150-minute exam and start the timer (RHEL 10: exam-r10-01)

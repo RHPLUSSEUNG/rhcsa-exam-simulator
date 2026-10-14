@@ -1,0 +1,20 @@
+{
+  "Time's up": "시간 종료",
+  "Time remaining: ": "남은 시간: ",
+  "Loading ...": "불러오는 중...",
+  "Checking ...": "확인하는 중...",
+  ">Close</button>": ">닫기</button>",
+  " will ERASE all your work on it and restore the exam's initial state.": "의 모든 작업을 삭제하고 시험 초기 상태로 복원합니다.",
+  ". If this is the system you are using, it ends your current exam view": ". 현재 사용 중인 시스템이라면 시험 화면이 종료됩니다",
+  " and the node must be powered back on from your hypervisor (it cannot be started from inside the exam)": " 및 하이퍼바이저에서 노드를 다시 켜야 합니다(시험 내부에서는 시작할 수 없습니다)",
+  "Type CONFIRM (all caps) to proceed:": "진행하려면 대문자로 CONFIRM을 입력하십시오:",
+  "out('cancelled')": "out('취소됨')",
+  "this can take a minute.": "잠시 걸릴 수 있습니다.",
+  "This reboots ": "재부팅 대상: ",
+  " and grades after boot.": ", 부팅 후 채점합니다.",
+  "The report opens automatically when you log back in. Continue?": "다시 로그인하면 결과가 자동으로 열립니다. 계속하시겠습니까?",
+  "Grading with reboot — ": "재부팅 후 채점 — ",
+  " will reboot shortly.": " 시스템이 곧 재부팅됩니다.",
+  "Log back in: the report opens automatically.": "다시 로그인하면 결과가 자동으로 열립니다.",
+  "Grading ": "채점 중: "
+}

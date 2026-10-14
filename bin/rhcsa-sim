@@ -16,7 +16,7 @@ DURATION_DEFAULT=9000   # 2h30m, the real EX200 length (seconds)
 PASS_PCT=70             # 210/300
 
 usage() {
-  cat <<EOF
+  cat <<EOF | python3 "$RHCSA_HOME/lib/i18n.py" filter
 ${C_BOLD}rhcsa-sim${C_OFF} — practice the RHCSA EX200 exam on this machine
 
 ${C_BOLD}${C_YEL}QUICK START${C_OFF}
@@ -60,6 +60,10 @@ ${C_BOLD}SETUP (once)${C_OFF}
   local-repo               use the attached RHEL DVD as the offline package source
   list                     all exams and all 215 tasks
 
+${C_BOLD}LANGUAGE${C_OFF}
+  --lang ko|en             language for this invocation (default: ko)
+  lang [ko|en]             show or save the language setting
+
   ${C_DIM}categories: containers deploy filesystems network operate scripting security
               storage tools users        N = task number shown in the paper
   In the practice TUI:  h hint · s solution · c check · p check ALL · m mark · q quit
@@ -69,7 +73,7 @@ EOF
 
 # --------------------------------------------------------------------------
 cmd_list() {
-  echo "${C_BOLD}Available exams:${C_OFF}"
+  i18n_echo "${C_BOLD}Available exams:${C_OFF}"
   local f
   for f in "$RHCSA_EXAMS"/*.list; do
     [[ -e "$f" ]] || continue
@@ -79,34 +83,34 @@ cmd_list() {
     # unreachable total. Papers with no declaration are valid everywhere.
     exam_rhel_ok "$id" || continue
     local n; n="$(read_exam "$id" | wc -l)"
-    printf '  %-12s %s tasks\n' "$id" "$n"
+    i18n_printf '  %-12s %s tasks\n' "$id" "$n"
   done
-  printf '  %-12s one random task per domain\n' "random"
+  i18n_printf '  %-12s one random task per domain\n' "random"
   echo
-  echo "${C_BOLD}Installed tasks (id — domain — points):${C_OFF}"
+  i18n_echo "${C_BOLD}Installed tasks (id — domain — points):${C_OFF}"
   local t
   while read -r t; do
     [[ -z "$t" ]] && continue
     load_meta "$t"
-    printf '  %-22s %-14s %3s  %s\n' "$t" "$TASK_DOMAIN" "$TASK_POINTS" "$TASK_TITLE"
+    printf '  %-22s %-14s %3s  %s\n' "$t" "$TASK_DOMAIN" "$TASK_POINTS" "$(i18n_title "$t" "$TASK_TITLE")"
   done < <(all_tasks)
 }
 
 cmd_status() {
-  if ! session_active; then echo "No active exam session."; return 0; fi
+  if ! session_active; then i18n_echo "No active exam session."; return 0; fi
   local start dur exam now left
   exam="$(session_field exam)"; start="$(session_field start)"; dur="$(session_field duration)"
   now="$(date +%s)"; left=$(( start + dur - now ))
-  echo "Exam:        $exam"
-  echo "Started:     $(date -d "@$start" 2>/dev/null || date -r "$start")"
+  i18n_echo "Exam:        $exam"
+  i18n_echo "Started:     $(date -d "@$start" 2>/dev/null || date -r "$start")"
   if (( left > 0 )); then
-    printf 'Time left:   %02d:%02d:%02d\n' $((left/3600)) $(((left%3600)/60)) $((left%60))
+    i18n_printf 'Time left:   %02d:%02d:%02d\n' $((left/3600)) $(((left%3600)/60)) $((left%60))
   else
-    echo "Time left:   ${C_RED}EXPIRED${C_OFF}"
+    i18n_echo "Time left:   ${C_RED}EXPIRED${C_OFF}"
   fi
-  echo "Tasks:       $(session_field tasks | wc -l)"
+  i18n_echo "Tasks:       $(session_field tasks | wc -l)"
   if [[ "$exam" == practice-* ]]; then
-    echo "Mode:        practice — aids available: ${C_BOLD}rhcsa-sim hint N${C_OFF} · ${C_BOLD}solution N${C_OFF} · ${C_BOLD}check N${C_OFF}  (and h/s/c in the TUI)"
+    i18n_echo "Mode:        practice — aids available: ${C_BOLD}rhcsa-sim hint N${C_OFF} · ${C_BOLD}solution N${C_OFF} · ${C_BOLD}check N${C_OFF}  (and h/s/c in the TUI)"
   fi
 }
 
@@ -208,13 +212,13 @@ _controller_start() {
   while read -r t; do [[ -n "$t" ]] && n2+=("$t"); done < <(read_node_exam "$sel" node2)
   [[ ${#n1[@]} -gt 0 ]] || die "no node1 tasks in two-node exam '$sel'"
 
-  hr; echo "${C_BOLD}${C_YEL}  RHCSA TWO-NODE EXAM — DESTRUCTIVE SETUP (node1 + node2)${C_OFF}"; hr
-  echo "Seeds the exam on BOTH machines: node1 here, node2 over SSH"
-  echo "(${PEER_ROLE}.example.com). The full exam paper is shown HERE on node1;"
-  echo "you perform node2-tagged tasks on node2."
+  hr; i18n_echo "${C_BOLD}${C_YEL}  RHCSA TWO-NODE EXAM — DESTRUCTIVE SETUP (node1 + node2)${C_OFF}"; hr
+  i18n_echo "Seeds the exam on BOTH machines: node1 here, node2 over SSH"
+  i18n_echo "(${PEER_ROLE}.example.com). The full exam paper is shown HERE on node1;"
+  i18n_echo "you perform node2-tagged tasks on node2."
   echo
-  echo "${C_BOLD}TAKE VM SNAPSHOTS OF BOTH NODES NOW.${C_OFF}"
-  read -r -p "Type ${C_BOLD}CONFIRM${C_OFF} to seed both and start the timer: " ans
+  i18n_echo "${C_BOLD}TAKE VM SNAPSHOTS OF BOTH NODES NOW.${C_OFF}"
+  i18n_read -r -p "Type ${C_BOLD}CONFIRM${C_OFF} to seed both and start the timer: " ans
   [[ "$ans" == "CONFIRM" ]] || die "aborted (no confirmation)."
   _preseed "$practice"
 
@@ -270,11 +274,11 @@ EOF
     ok "Two-node exam '$sel' started — node1: ${#n1[@]} tasks (here), node2: ${#n2[@]} tasks (seeded on node2)."
   fi
   echo
-  echo "The FULL paper (both nodes) is here. Tasks tagged ${C_BOLD}[node2]${C_OFF} are done on node2:"
-  echo "    ssh student@${PEER_ROLE}.example.com   then  sudo -i"
-  echo "Open the paper + timer:   ${C_BOLD}rhcsa-sim tui${C_OFF}"
-  echo "Grade EVERYTHING from here (node1+node2): ${C_BOLD}rhcsa-sim grade$( (( ! practice )) && printf ' --reboot')${C_OFF}"
-  if [[ -t 0 && -t 1 ]]; then read -r -p "Launch the exam paper now? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] || cmd_tui; fi
+  i18n_echo "The FULL paper (both nodes) is here. Tasks tagged ${C_BOLD}[node2]${C_OFF} are done on node2:"
+  i18n_echo "    ssh student@${PEER_ROLE}.example.com   then  sudo -i"
+  i18n_echo "Open the paper + timer:   ${C_BOLD}rhcsa-sim tui${C_OFF}"
+  i18n_echo "Grade EVERYTHING from here (node1+node2): ${C_BOLD}rhcsa-sim grade$( (( ! practice )) && printf ' --reboot')${C_OFF}"
+  if [[ -t 0 && -t 1 ]]; then i18n_read -r -p "Launch the exam paper now? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] || cmd_tui; fi
 }
 
 # Record node1's access info for the browser "Important configuration information"
@@ -352,16 +356,16 @@ cmd_start() {
 
   # Snapshot gate
   hr
-  echo "${C_BOLD}${C_YEL}  RHCSA SIMULATOR — DESTRUCTIVE SETUP${C_OFF}"
+  i18n_echo "${C_BOLD}${C_YEL}  RHCSA SIMULATOR — DESTRUCTIVE SETUP${C_OFF}"
   hr
-  echo "This will create users, groups, partitions, logical volumes, services,"
-  echo "container images and config on THIS machine to seed the exam environment."
-  echo "It first resets what earlier sessions changed (spare disks wiped, task users removed)."
+  i18n_echo "This will create users, groups, partitions, logical volumes, services,"
+  i18n_echo "container images and config on THIS machine to seed the exam environment."
+  i18n_echo "It first resets what earlier sessions changed (spare disks wiped, task users removed)."
   echo
-  echo "${C_BOLD}TAKE A VM SNAPSHOT NOW.${C_OFF} Reverting that snapshot is the reliable"
-  echo "way to reset between attempts."
+  i18n_echo "${C_BOLD}TAKE A VM SNAPSHOT NOW.${C_OFF} Reverting that snapshot is the reliable"
+  i18n_echo "way to reset between attempts."
   echo
-  read -r -p "Type ${C_BOLD}CONFIRM${C_OFF} to seed the environment and start the timer: " ans
+  i18n_read -r -p "Type ${C_BOLD}CONFIRM${C_OFF} to seed the environment and start the timer: " ans
   [[ "$ans" == "CONFIRM" ]] || die "aborted (no confirmation)."
   _preseed "$practice"
 
@@ -397,16 +401,16 @@ cmd_start() {
     ok "PRACTICE '$sel' started — ${#tasks[@]} tasks."
     _aids_banner
     echo
-    echo "Open the paper + timer:  ${C_BOLD}rhcsa-sim tui${C_OFF}    ·    grade all: ${C_BOLD}rhcsa-sim grade${C_OFF}"
+    i18n_echo "Open the paper + timer:  ${C_BOLD}rhcsa-sim tui${C_OFF}    ·    grade all: ${C_BOLD}rhcsa-sim grade${C_OFF}"
   else
     ok "Exam '$sel' started — ${#tasks[@]} tasks, $((dur/60)) minutes."
     echo
-    echo "Open the exam paper + timer with:  ${C_BOLD}rhcsa-sim tui${C_OFF}"
-    echo "When finished:                     ${C_BOLD}rhcsa-sim grade --reboot${C_OFF}"
+    i18n_echo "Open the exam paper + timer with:  ${C_BOLD}rhcsa-sim tui${C_OFF}"
+    i18n_echo "When finished:                     ${C_BOLD}rhcsa-sim grade --reboot${C_OFF}"
   fi
   # Auto-launch TUI if interactive
   if [[ -t 0 && -t 1 ]]; then
-    read -r -p "Launch the exam paper now? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] || cmd_tui
+    i18n_read -r -p "Launch the exam paper now? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] || cmd_tui
   fi
 }
 
@@ -437,10 +441,10 @@ _vm_rebuild() {   # restore a node to the exam's INITIAL seeded state (wipe work
   if [[ "$node" != "$self" ]]; then
     info "Rebuilding ${node}.example.com over the channel — a few minutes; control may be unresponsive ..."
     _peer_ssh "rhcsa-sim vm rebuild $node --yes" </dev/null 2>&1 | sed 's/^/  [peer] /' || warn "peer rebuild failed (is $node up?)."
-    echo "${node}.example.com rebuilt to its initial exam state."
+    i18n_echo "${node}.example.com rebuilt to its initial exam state."
     return 0
   fi
-  session_active || { echo "no active session to rebuild from."; return 1; }
+  session_active || { i18n_echo "no active session to rebuild from."; return 1; }
   warn "Rebuilding ${self}.example.com — erasing your work and restoring the exam's initial state ..."
   local t d
   while read -r t; do
@@ -454,7 +458,7 @@ _vm_rebuild() {   # restore a node to the exam's INITIAL seeded state (wipe work
     rm -f "$RHCSA_RESULTS/$t.jsonl" 2>/dev/null
   done < <(session_field tasks)
   systemctl reset-failed >/dev/null 2>&1
-  echo "${self}.example.com restored to the exam's initial state."
+  i18n_echo "${self}.example.com restored to the exam's initial state."
 }
 
 cmd_vm() {   # rhcsa-sim vm <action> <node> [--yes]
@@ -470,38 +474,38 @@ cmd_vm() {   # rhcsa-sim vm <action> <node> [--yes]
     status)
       # Power state, like the real exam's "Status" (active vs shut off) — not systemd health.
       if (( is_self )); then
-        echo "${fqdn}: active (running) — up $(uptime -p 2>/dev/null | sed 's/^up //')"
+        i18n_echo "${fqdn}: active (running) — up $(uptime -p 2>/dev/null | sed 's/^up //')"
       elif _peer_ssh "true" </dev/null >/dev/null 2>&1; then
         echo "${fqdn}: active — up $(_peer_ssh 'uptime -p' </dev/null 2>/dev/null | sed 's/^up //')"
       else
-        echo "${fqdn}: shut off / unreachable (or controller channel down)"
+        i18n_echo "${fqdn}: shut off / unreachable (or controller channel down)"
       fi ;;
     start)
-      if (( is_self )); then echo "${fqdn} is already running (you are on it)."
-      else echo "Cannot power ${fqdn} on from inside the exam environment (a guest has no hypervisor access). If it is shut off, power it on from your hypervisor's VM manager (virt-manager/virsh on KVM, or VirtualBox / VMware / Hyper-V / UTM). To just restart a running node, use Reboot instead."; fi ;;
+      if (( is_self )); then i18n_echo "${fqdn} is already running (you are on it)."
+      else i18n_echo "Cannot power ${fqdn} on from inside the exam environment (a guest has no hypervisor access). If it is shut off, power it on from your hypervisor's VM manager (virt-manager/virsh on KVM, or VirtualBox / VMware / Hyper-V / UTM). To just restart a running node, use Reboot instead."; fi ;;
     reboot|hard-reboot)
       local how="systemctl reboot"; [[ "$action" == hard-reboot ]] && how="reboot -f"
       if (( is_self )); then
-        (( yes )) || { echo "Refusing to ${action} ${fqdn} (this very system) without --yes — it ends your current session."; return 1; }
+        (( yes )) || { i18n_echo "Refusing to ${action} ${fqdn} (this very system) without --yes — it ends your current session."; return 1; }
         warn "${action} ${fqdn} (this system) — your session/exam view will drop."
-        ( sleep 1; eval "$how" ) >/dev/null 2>&1 & echo "${fqdn}: ${action} initiated."
+        ( sleep 1; eval "$how" ) >/dev/null 2>&1 & i18n_echo "${fqdn}: ${action} initiated."
       else
         # Fire DETACHED on the peer: a forced 'reboot -f' severs the SSH channel
         # without returning, which would hang the caller. Background it so the
         # channel closes immediately (same trick as the node2 seed).
         info "${action} ${fqdn} over the channel ..."
         _peer_ssh "nohup bash -c '(sleep 1; $how)' >/dev/null 2>&1 </dev/null &" </dev/null >/dev/null 2>&1 || true
-        echo "${fqdn}: ${action} command sent — unavailable for ~a minute."
+        i18n_echo "${fqdn}: ${action} command sent — unavailable for ~a minute."
       fi ;;
     shutdown)
       if (( is_self )); then
-        (( yes )) || { echo "Refusing to shut down ${fqdn} (this very system) without --yes."; return 1; }
-        warn "Shutting down ${fqdn} (this system)."; ( sleep 1; systemctl poweroff ) >/dev/null 2>&1 & echo "${fqdn}: shutting down ..."
+        (( yes )) || { i18n_echo "Refusing to shut down ${fqdn} (this very system) without --yes."; return 1; }
+        warn "Shutting down ${fqdn} (this system)."; ( sleep 1; systemctl poweroff ) >/dev/null 2>&1 & i18n_echo "${fqdn}: shutting down ..."
       else
         warn "Shutdown powers ${fqdn} OFF, and it CANNOT be powered back on from inside the exam — you would restart it from your hypervisor's VM manager (virt-manager/virsh, VirtualBox, VMware, Hyper-V, UTM, …). If you only want to restart it, use ${C_BOLD}Reboot${C_OFF} instead."
         info "Shutting down ${fqdn} over the channel ..."
         _peer_ssh "nohup bash -c '(sleep 1; systemctl poweroff)' >/dev/null 2>&1 </dev/null &" </dev/null >/dev/null 2>&1 || true
-        echo "${fqdn}: shutdown sent — now powered off; power it back on from your hypervisor's VM manager (it can't be started from inside the exam)."
+        i18n_echo "${fqdn}: shutdown sent — now powered off; power it back on from your hypervisor's VM manager (it can't be started from inside the exam)."
       fi ;;
     console)
       local cmd="ssh student@${fqdn}" su="${SUDO_USER:-}" uid=""
@@ -512,15 +516,15 @@ cmd_vm() {   # rhcsa-sim vm <action> <node> [--yes]
         runuser -u "$su" -- env DISPLAY="${DISPLAY:-:0}" XDG_RUNTIME_DIR="/run/user/$uid" \
           WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" gnome-terminal -- bash -c "${cmd}; exec bash" \
           >/dev/null 2>&1 &
-        echo "Opened a console terminal to ${fqdn} on the desktop (log in as student, then: sudo -i)."
+        i18n_echo "Opened a console terminal to ${fqdn} on the desktop (log in as student, then: sudo -i)."
       elif [[ -n "${DISPLAY:-}" ]] && command -v gnome-terminal >/dev/null 2>&1; then
         ( gnome-terminal -- bash -c "${cmd}; exec bash" ) >/dev/null 2>&1 &
-        echo "Opened a console terminal to ${fqdn}  (then: sudo -i)."
+        i18n_echo "Opened a console terminal to ${fqdn}  (then: sudo -i)."
       else
-        echo "Open a terminal and run:  ${cmd}      (then: sudo -i)   # no graphical desktop detected"
+        i18n_echo "Open a terminal and run:  ${cmd}      (then: sudo -i)   # no graphical desktop detected"
       fi ;;
     rebuild)
-      (( yes )) || { echo "Rebuild ${fqdn} ERASES all work on it and restores the exam's initial state. Re-run with --yes (the browser asks you to type CONFIRM)."; return 1; }
+      (( yes )) || { i18n_echo "Rebuild ${fqdn} ERASES all work on it and restores the exam's initial state. Re-run with --yes (the browser asks you to type CONFIRM)."; return 1; }
       _vm_rebuild "$node" ;;
     *) die "unknown vm action '$action' (status|start|reboot|shutdown|hard-reboot|console|rebuild)" ;;
   esac
@@ -626,8 +630,8 @@ _report_py() {  # passes through extra flags
 cmd_report() {
   # --history needs no active session: it reads the persistent attempt history.
   if [[ "${1:-}" == "--history" ]]; then
-    [[ -s "$RHCSA_HISTORY" ]] || { echo "No graded attempts recorded yet — grade an exam or practice session first."; return 0; }
-    echo "${C_BOLD}PAST ATTEMPTS${C_OFF}  (newest last; pct is of that paper's points)"
+    [[ -s "$RHCSA_HISTORY" ]] || { i18n_echo "No graded attempts recorded yet — grade an exam or practice session first."; return 0; }
+    i18n_echo "${C_BOLD}PAST ATTEMPTS${C_OFF}  (newest last; pct is of that paper's points)"
     python3 -c '
 import json,sys,time
 rows=[]
@@ -658,7 +662,7 @@ for d in rows[-20:]:
   # Time analysis (written by the TUI while you work) — exam time management.
   if [[ -s "$RHCSA_STATE/tasktime.json" && $jsonout -eq 0 ]]; then
     echo
-    echo "${C_BOLD}Where your time went (from the TUI):${C_OFF}"
+    i18n_echo "${C_BOLD}Where your time went (from the TUI):${C_OFF}"
     { all_tasks | while read -r tt; do load_meta "$tt"; echo "$tt $TASK_DOMAIN"; done
       echo "---TIMES---"; cat "$RHCSA_STATE/tasktime.json"; } | python3 -c '
 import json,sys
@@ -673,6 +677,9 @@ try: times=json.loads("\n".join(lines[i+1:]) or "{}")
 except Exception: times={}
 agg=defaultdict(float)
 for t,s in times.items(): agg[dom.get(t,"misc")]+=float(s)
+import os
+sys.path.insert(0,os.path.join(os.environ["RHCSA_HOME"],"lib"))
+from i18n import print_display as print
 tot=sum(agg.values())
 if tot<60: print("  (under a minute tracked)")
 else:
@@ -698,6 +705,9 @@ def load(s):
     except Exception: return None
 a=load(sys.argv[1]); b=load(sys.argv[2]); passpct=float(sys.argv[3])
 do_record=sys.argv[4]=="1"; hist=sys.argv[5]; sstart=sys.argv[6]; smode=sys.argv[7]
+import os
+sys.path.insert(0,os.path.join(os.environ["RHCSA_HOME"],"lib"))
+from i18n import print_display as print
 print("="*56)
 print("  RHCSA TWO-NODE COMBINED RESULT")
 print("="*56)
@@ -846,13 +856,13 @@ cmd_reset() {
     --history|--stats|--all) wipe_history=1 ;;
   esac; done
   [[ "${RHCSA_ASSUME_YES:-}" == 1 ]] && assume_yes=1
-  echo "${C_YEL}Resets ALL practice changes — storage (partitions/LVM/swap/mounts/fstab),"
-  echo "network (dummy NICs + test connections), and task files — back to a clean state."
-  echo "Keeps the spare disks (as bare hardware), the DVD repo, and the node setup.${C_OFF}"
-  (( wipe_history )) && echo "${C_BOLD}${C_YEL}--history: your progress history (stats · practice weak · report --history) will ALSO be erased — a completely fresh start.${C_OFF}"
+  i18n_echo "${C_YEL}Resets ALL practice changes — storage (partitions/LVM/swap/mounts/fstab),"
+  i18n_echo "network (dummy NICs + test connections), and task files — back to a clean state."
+  i18n_echo "Keeps the spare disks (as bare hardware), the DVD repo, and the node setup.${C_OFF}"
+  (( wipe_history )) && i18n_echo "${C_BOLD}${C_YEL}--history: your progress history (stats · practice weak · report --history) will ALSO be erased — a completely fresh start.${C_OFF}"
   # Allow non-interactive use (e.g. piped 'y') and a --yes flag.
   if (( ! assume_yes )); then
-    read -r -p "Proceed? [y/N] " a; [[ "$a" =~ ^[Yy] ]] || { echo "cancelled"; return 0; }
+    i18n_read -r -p "Proceed? [y/N] " a; [[ "$a" =~ ^[Yy] ]] || { echo "cancelled"; return 0; }
   fi
   _reset_clean "$wipe_history"
   if (( wipe_history )); then
@@ -875,9 +885,9 @@ cmd_practice() {
   local dom="${1:-}"
   if [[ -z "$dom" ]]; then
     echo "usage: rhcsa-sim practice <category | exam | weak>"
-    echo "  categories : $(available_categories)"
-    echo "  weak       : tasks you failed recently or never tried"
-    echo "  exam       : ANY exam name, WITH aids (single- or two-node; see 'rhcsa-sim list')"
+    i18n_echo "  categories : $(available_categories)"
+    i18n_echo "  weak       : tasks you failed recently or never tried"
+    i18n_echo "  exam       : ANY exam name, WITH aids (single- or two-node; see 'rhcsa-sim list')"
     return 1
   fi
   # Practice a full EXAM with aids: reuse the start machinery (incl. the two-node
@@ -905,10 +915,10 @@ cmd_practice() {
   [[ ${#tasks[@]} -gt 0 ]] || die "no tasks found for category '$dom'."
 
   session_active && warn "An existing session will be overwritten."
-  hr; echo "${C_BOLD}${C_YEL}  RHCSA CATEGORY PRACTICE — ${dom}  (${#tasks[@]} tasks)${C_OFF}"; hr
-  echo "Seeds ${#tasks[@]} '${dom}' tasks on THIS machine (single-node, focused practice)."
-  echo "${C_BOLD}Take a VM snapshot to reset between attempts.${C_OFF}"
-  read -r -p "Type ${C_BOLD}CONFIRM${C_OFF} to seed and start: " ans
+  hr; i18n_echo "${C_BOLD}${C_YEL}  RHCSA CATEGORY PRACTICE — ${dom}  (${#tasks[@]} tasks)${C_OFF}"; hr
+  i18n_echo "Seeds ${#tasks[@]} '${dom}' tasks on THIS machine (single-node, focused practice)."
+  i18n_echo "${C_BOLD}Take a VM snapshot to reset between attempts.${C_OFF}"
+  i18n_read -r -p "Type ${C_BOLD}CONFIRM${C_OFF} to seed and start: " ans
   [[ "$ans" == "CONFIRM" ]] || die "aborted (no confirmation)."
 
   # SELF-CLEAN previous session state before seeding, so no task starts pre-completed.
@@ -938,8 +948,8 @@ cmd_practice() {
   session_write "practice-${dom}" "${RHCSA_DURATION:-3600}" "$(date +%s)" "${tasks[@]}"
   ok "Category practice '${dom}' started — ${#tasks[@]} tasks, $(( ${RHCSA_DURATION:-3600} / 60 )) min."
   _aids_banner
-  echo "Read tasks:  ${C_BOLD}rhcsa-sim tui${C_OFF}    Grade:  ${C_BOLD}rhcsa-sim grade${C_OFF}    Report:  ${C_BOLD}rhcsa-sim report${C_OFF}"
-  if [[ -t 0 && -t 1 ]]; then read -r -p "Launch the practice paper now? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] || cmd_tui; fi
+  i18n_echo "Read tasks:  ${C_BOLD}rhcsa-sim tui${C_OFF}    Grade:  ${C_BOLD}rhcsa-sim grade${C_OFF}    Report:  ${C_BOLD}rhcsa-sim report${C_OFF}"
+  if [[ -t 0 && -t 1 ]]; then i18n_read -r -p "Launch the practice paper now? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] || cmd_tui; fi
 }
 
 cmd_study() {
@@ -949,47 +959,47 @@ cmd_study() {
   if category_available "$t"; then
     _course_body() {
       local id n=0
-      echo "STUDY COURSE — every '$t' task with its reference solution"
+      i18n_echo "STUDY COURSE — every '$t' task with its reference solution"
       echo "============================================================"
       while read -r id; do
         [[ -z "$id" ]] && continue
         load_meta "$id"; [[ "$TASK_DOMAIN" == "$t" ]] || continue
         n=$((n+1))
         echo; echo "------------------------------------------------------------"
-        echo "[$n] $id — $TASK_TITLE  ($TASK_POINTS pts)"
+        i18n_echo "[$n] $id — $TASK_TITLE  ($TASK_POINTS pts)"
         echo "------------------------------------------------------------"
         gen_task_params "$id" "$(task_dir "$id")" 2>/dev/null
         render_prompt "$id" "$(task_dir "$id")" 2>/dev/null
-        sed 's/^/  /' "$RHCSA_PROMPTS_DIR/$id.txt" 2>/dev/null || sed 's/^/  /' "$(task_dir "$id")/prompt.txt"
-        echo; echo "  SOLUTION:"
+        i18n_text "$id" prompt | sed 's/^/  /' 2>/dev/null || sed 's/^/  /' "$(task_dir "$id")/prompt.txt"
+        echo; i18n_echo "  SOLUTION:"
         render_solution "$id" >/dev/null 2>&1 || true
-        sed 's/^/  /' "$RHCSA_SOLUTIONS_DIR/$id.txt" 2>/dev/null || sed 's/^/  /' "$(task_dir "$id")/solution.md" 2>/dev/null
+        i18n_text "$id" solution | sed 's/^/  /' 2>/dev/null || sed 's/^/  /' "$(task_dir "$id")/solution.md" 2>/dev/null
       done < <(all_tasks)
       echo; echo "============================================================"
-      echo "$n tasks. Hands-on next:  rhcsa-sim practice $t"
+      i18n_echo "$n tasks. Hands-on next:  rhcsa-sim practice $t"
     }
     if [[ -t 1 ]] && command -v less >/dev/null 2>&1; then _course_body | less -R; else _course_body; fi
     return 0
   fi
   task_exists "$t" || die "unknown task or category: $t  (categories: $(available_categories))"
   load_meta "$t"
-  hr; echo "${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
+  hr; i18n_echo "${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
   # Show the rendered prompt (use live-session params if present, else a sample).
   if [[ -f "$RHCSA_PROMPTS_DIR/$t.txt" ]]; then
-    cat "$RHCSA_PROMPTS_DIR/$t.txt"
+    i18n_text "$t" prompt
   elif [[ -f "$(task_dir "$t")/params.sh" ]]; then
     gen_task_params "$t" "$(task_dir "$t")"; render_prompt "$t" "$(task_dir "$t")"
-    cat "$RHCSA_PROMPTS_DIR/$t.txt"
-    echo; echo "${C_DIM}(values above are a randomised sample; each exam run differs)${C_OFF}"
+    i18n_text "$t" prompt
+    echo; i18n_echo "${C_DIM}(values above are a randomised sample; each exam run differs)${C_OFF}"
   else
-    cat "$(task_dir "$t")/prompt.txt"
+    i18n_text "$t" prompt
   fi
   echo
-  echo "${C_BOLD}Reference solution:${C_OFF}"; hr
+  i18n_echo "${C_BOLD}Reference solution:${C_OFF}"; hr
   # Rendered with the same params as the prompt above (live session or sample),
   # so <PKG>/{{PKG}}-style placeholders show the concrete values.
   render_solution "$t" >/dev/null 2>&1 || true
-  cat "$RHCSA_SOLUTIONS_DIR/$t.txt" 2>/dev/null || cat "$(task_dir "$t")/solution.md"
+  i18n_text "$t" solution
 }
 
 # ---- Practice aids: hint / solution / check --------------------------------
@@ -1031,12 +1041,12 @@ cmd_hint() {     # rhcsa-sim hint TASK|NUMBER
   # node2's params); fetch it over the channel, like 'check' does.
   if session_active && ! session_field tasks 2>/dev/null | grep -qx "$t" \
      && [[ "$(_paper_node_of "$t")" == node2 && "${NODE_ROLE:-}" == node1 ]]; then
-    _peer_ssh "rhcsa-sim hint $t" </dev/null; return $?
+    _peer_ssh "rhcsa-sim --lang $RHCSA_LANG hint $t" </dev/null; return $?
   fi
   load_meta "$t"
   render_hint "$t" >/dev/null 2>&1 || true
-  hr; echo "${C_BOLD}${C_YEL}HINT${C_OFF} — ${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
-  cat "$RHCSA_HINTS_DIR/$t.txt" 2>/dev/null || echo "(no hint available)"
+  hr; i18n_echo "${C_BOLD}${C_YEL}HINT${C_OFF} — ${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
+  i18n_text "$t" hint 2>/dev/null || i18n_echo "(no hint available)"
 }
 
 cmd_solution() { # rhcsa-sim solution TASK|NUMBER
@@ -1048,14 +1058,13 @@ cmd_solution() { # rhcsa-sim solution TASK|NUMBER
   # with node2's params), like 'check' does.
   if session_active && ! session_field tasks 2>/dev/null | grep -qx "$t" \
      && [[ "$(_paper_node_of "$t")" == node2 && "${NODE_ROLE:-}" == node1 ]]; then
-    _peer_ssh "rhcsa-sim solution $t" </dev/null; return $?
+    _peer_ssh "rhcsa-sim --lang $RHCSA_LANG solution $t" </dev/null; return $?
   fi
   load_meta "$t"
   render_solution "$t" >/dev/null 2>&1 || true
-  hr; echo "${C_BOLD}${C_GRN}SOLUTION${C_OFF} — ${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
-  cat "$RHCSA_SOLUTIONS_DIR/$t.txt" 2>/dev/null || cat "$(task_dir "$t")/solution.md" 2>/dev/null \
-    || echo "(no reference solution for $t)"
-  _is_practice_session || { echo; echo "${C_DIM}(note: the real exam gives no answers — use this for learning, not during timed attempts)${C_OFF}"; }
+  hr; i18n_echo "${C_BOLD}${C_GRN}SOLUTION${C_OFF} — ${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
+  i18n_text "$t" solution
+  _is_practice_session || { echo; i18n_echo "${C_DIM}(note: the real exam gives no answers — use this for learning, not during timed attempts)${C_OFF}"; }
 }
 
 cmd_check() {    # rhcsa-sim check TASK|NUMBER — instant per-task feedback
@@ -1069,7 +1078,7 @@ cmd_check() {    # rhcsa-sim check TASK|NUMBER — instant per-task feedback
   if ! session_field tasks | grep -qx "$t"; then
     if [[ "$(_paper_node_of "$t")" == node2 && "${NODE_ROLE:-}" == node1 ]]; then
       info "node2 task — checking on node2 over the controller channel ..."
-      _peer_ssh "rhcsa-sim check $t" </dev/null
+      _peer_ssh "rhcsa-sim --lang $RHCSA_LANG check $t" </dev/null
       return $?
     fi
     die "task '$t' is not part of the current session."
@@ -1082,6 +1091,9 @@ cmd_check() {    # rhcsa-sim check TASK|NUMBER — instant per-task feedback
     RHCSA_TASK_ID="$t" RHCSA_HOME="$RHCSA_HOME" RHCSA_LIB="$RHCSA_LIB" RHCSA_ASSETS="$RHCSA_ASSETS" \
     bash "$g" ) </dev/null 2>/dev/null | python3 -c '
 import json,sys
+import os
+sys.path.insert(0,os.path.join(os.environ["RHCSA_HOME"],"lib"))
+from i18n import print_display as print
 got=tot=0; rows=[]
 for line in sys.stdin:
     try: d=json.loads(line)
@@ -1097,7 +1109,7 @@ if tot and got==tot:
     print(f"  TASK COMPLETE - {got}/{tot} points"); sys.exit(0)
 print(f"  NOT YET - {got}/{tot} points  (re-read the task, or: rhcsa-sim hint)"); sys.exit(1)'
   local rc=$?
-  _is_practice_session || echo "${C_DIM}(self-check is a practice aid — the real exam gives no feedback)${C_OFF}"
+  _is_practice_session || i18n_echo "${C_DIM}(self-check is a practice aid — the real exam gives no feedback)${C_OFF}"
   return $rc
 }
 
@@ -1167,11 +1179,11 @@ PY
 
 cmd_stats() {    # mastery map · weak tasks · exam trend · readiness
   local hist="$RHCSA_HISTORY"
-  hr; echo "${C_BOLD}YOUR RHCSA PROGRESS${C_OFF}  (real exams + mock only; survives reset)"; hr
+  hr; i18n_echo "${C_BOLD}YOUR RHCSA PROGRESS${C_OFF}  (real exams + mock only; survives reset)"; hr
   if [[ ! -s "$hist" ]]; then
-    echo "No graded attempts recorded yet."
-    echo "History records ${C_BOLD}real exams${C_OFF} (rhcsa-sim start) and ${C_BOLD}mock${C_OFF} only — aided practice"
-    echo "is not tracked. Take an exam or a mock, grade it, then come back. Weak-area drilling (untracked): ${C_BOLD}rhcsa-sim practice weak${C_OFF}"
+    i18n_echo "No graded attempts recorded yet."
+    i18n_echo "History records ${C_BOLD}real exams${C_OFF} (rhcsa-sim start) and ${C_BOLD}mock${C_OFF} only — aided practice"
+    i18n_echo "is not tracked. Take an exam or a mock, grade it, then come back. Weak-area drilling (untracked): ${C_BOLD}rhcsa-sim practice weak${C_OFF}"
     return 0
   fi
   { all_tasks | while read -r t; do load_meta "$t"; echo "$t $TASK_DOMAIN"; done
@@ -1193,6 +1205,9 @@ for ln in lines[i+1:]:
         if not cur or r.get("ts",0)>=cur.get("ts",0): latest[r["task"]]=r
     elif r.get("kind")=="exam":
         exams.append(r)
+import os
+sys.path.insert(0,os.path.join(os.environ["RHCSA_HOME"],"lib"))
+from i18n import print_display as print
 total=len(dom)
 att=[t for t in latest if t in dom]
 mastered=[t for t in att if latest[t].get("pass")]
@@ -1240,7 +1255,7 @@ else:
     print("  No exam/mock attempts yet — readiness needs 3 consecutive exam/mock scores >= 83%.")
 '
   echo
-  echo "  ${C_DIM}Wipe this progress and start fresh:  rhcsa-sim reset --history${C_OFF}"
+  i18n_echo "  ${C_DIM}Wipe this progress and start fresh:  rhcsa-sim reset --history${C_OFF}"
 }
 
 # ---- Failure forensics: the evidence an examiner would pull ----------------
@@ -1248,12 +1263,12 @@ else:
 # targeted diagnostics so you learn to DIAGNOSE, not just see a red X.
 _forensics_body() {   # _forensics_body <task>
   local t="$1" f="$RHCSA_RESULTS/$t.jsonl"
-  [[ -f "$f" ]] || { echo "  (no grade result for $t — run 'check' or 'grade' first)"; return 0; }
+  [[ -f "$f" ]] || { i18n_echo "  (no grade result for $t — run 'check' or 'grade' first)"; return 0; }
   ( set -a; load_task_params "$t"; load_node_conf 2>/dev/null; set +a
     . "$RHCSA_LIB/grade-lib.sh" 2>/dev/null
     load_meta "$t"
     # 1) re-run each FAILED checkpoint's own probe and show what it sees NOW
-    echo "  what the grader's own checks see right now:"
+    i18n_echo "  what the grader's own checks see right now:"
     python3 -c '
 import json,sys
 for ln in open(sys.argv[1],encoding="utf-8",errors="replace"):
@@ -1266,33 +1281,33 @@ for ln in open(sys.argv[1],encoding="utf-8",errors="replace"):
         if [[ -n "$det" && "$det" == *' '* ]]; then
           local out; out="$( timeout 8 bash -c ". '$RHCSA_LIB/grade-lib.sh' 2>/dev/null; $det" </dev/null 2>&1 | head -4 )"
           if [[ -n "$out" ]]; then echo "$out" | sed 's/^/          /'
-          else echo "          (probe produced no output — what it checks for is absent)"; fi
+          else i18n_echo "          (probe produced no output — what it checks for is absent)"; fi
         fi
       done
     # 2) targeted, symptom-based evidence  (every probe is timeout-bounded and
     #    reads from /dev/null, so a slow/blocking tool can never stall a report)
     local probe
     if [[ -n "${SVC:-}" ]]; then
-      echo "  service '$SVC':"
+      i18n_echo "  service '$SVC':"
       timeout 6 systemctl --no-pager --full status "$SVC" </dev/null 2>&1 | sed -n '1,6p' | sed 's/^/    /'
-      echo "  last journal lines for '$SVC':"
+      i18n_echo "  last journal lines for '$SVC':"
       timeout 6 journalctl -u "$SVC" -n 8 --no-pager </dev/null 2>/dev/null | tail -8 | sed 's/^/    /'
     fi
     if [[ -n "${MP:-}${LBL:-}${VG:-}" || "$TASK_DOMAIN" == storage || "$TASK_DOMAIN" == filesystems ]]; then
-      echo "  fstab entries related to this task:"
+      i18n_echo "  fstab entries related to this task:"
       grep -nE "${MP:-_nomatch_}|${LBL:-_nomatch_}|${VG:-_nomatch_}|/mnt/" /etc/fstab 2>/dev/null | sed 's/^/    /' || echo "    (none)"
-      echo "  fstab validation (findmnt --verify; warnings point at the bad line):"
+      i18n_echo "  fstab validation (findmnt --verify; warnings point at the bad line):"
       probe="$(timeout 8 findmnt --verify </dev/null 2>&1 | grep -iE 'warn|error|unreachable|not exist' | head -4)"
-      [[ -n "$probe" ]] && echo "$probe" | sed 's/^/    /' || echo "    (fstab parses cleanly)"
+      [[ -n "$probe" ]] && echo "$probe" | sed 's/^/    /' || i18n_echo "    (fstab parses cleanly)"
     fi
     if [[ "$TASK_DOMAIN" == security || "$t" == selinux-* ]]; then
       echo "  SELinux mode: $(timeout 4 getenforce </dev/null 2>/dev/null)"
-      echo "  recent AVC (access-denied) records:"
+      i18n_echo "  recent AVC (access-denied) records:"
       probe="$(timeout 6 ausearch -m avc -ts recent </dev/null 2>/dev/null | tail -6)"
-      [[ -n "$probe" ]] && echo "$probe" | sed 's/^/    /' || echo "    (no recent denials, or none within the timeout)"
+      [[ -n "$probe" ]] && echo "$probe" | sed 's/^/    /' || i18n_echo "    (no recent denials, or none within the timeout)"
     fi
     if [[ "$t" == firewall-* || -n "${FWPORT:-}${FWSVC:-}${ZONE:-}" ]]; then
-      echo "  firewall (active config):"
+      i18n_echo "  firewall (active config):"
       timeout 6 firewall-cmd --list-all </dev/null 2>/dev/null | sed -n '1,10p' | sed 's/^/    /'
     fi
   )
@@ -1316,7 +1331,7 @@ cmd_forensics() {  # rhcsa-sim forensics TASK|N — diagnose why a task is faili
   local g; g="$(task_dir "$t")/grade.sh"
   ( load_task_params "$t"; RHCSA_TASK_ID="$t" RHCSA_HOME="$RHCSA_HOME" RHCSA_LIB="$RHCSA_LIB" RHCSA_ASSETS="$RHCSA_ASSETS" bash "$g" ) </dev/null >"$RHCSA_RESULTS/$t.jsonl" 2>/dev/null || true
   load_meta "$t"
-  hr; echo "${C_BOLD}FORENSICS${C_OFF} — $t — $TASK_TITLE  [$TASK_DOMAIN]"; hr
+  hr; i18n_echo "${C_BOLD}FORENSICS${C_OFF} — $t — $TASK_TITLE  [$TASK_DOMAIN]"; hr
   if python3 -c '
 import json,sys
 ok=True; rows=0
@@ -1324,10 +1339,10 @@ for ln in open(sys.argv[1],encoding="utf-8",errors="replace"):
   try: d=json.loads(ln); rows+=1; ok=ok and bool(d.get("ok"))
   except Exception: pass
 sys.exit(0 if (rows and ok) else 1)' "$RHCSA_RESULTS/$t.jsonl"; then
-    echo "  This task currently PASSES — nothing to diagnose."; return 0
+    i18n_echo "  This task currently PASSES — nothing to diagnose."; return 0
   fi
   _forensics_body "$t"
-  echo; echo "  Fix the above, then:  ${C_BOLD}rhcsa-sim check $t${C_OFF}   (stuck: rhcsa-sim hint $t)"
+  echo; i18n_echo "  Fix the above, then:  ${C_BOLD}rhcsa-sim check $t${C_OFF}   (stuck: rhcsa-sim hint $t)"
 }
 
 cmd_review() {   # walk every FAILED task of the last grade: gap + solution
@@ -1336,7 +1351,7 @@ cmd_review() {   # walk every FAILED task of the last grade: gap + solution
   ls "$RHCSA_RESULTS"/*.jsonl >/dev/null 2>&1 || die "nothing graded yet — run 'rhcsa-sim grade' first, then review."
   _review_body() {
     local t failed=0 total=0
-    echo "REVIEW — $(session_field exam): every task that did NOT earn full marks"
+    i18n_echo "REVIEW — $(session_field exam): every task that did NOT earn full marks"
     echo "============================================================"
     while read -r t; do
       [[ -z "$t" ]] && continue
@@ -1351,12 +1366,12 @@ for ln in open(sys.argv[1],encoding="utf-8",errors="replace"):
 sys.exit(0 if (rows and ok) else 1)' "$f"; then continue; fi
       failed=$((failed+1)); load_meta "$t"
       echo; echo "------------------------------------------------------------"
-      echo "FAILED: $t — $TASK_TITLE   [$TASK_DOMAIN, $TASK_POINTS pts]"
+      i18n_echo "FAILED: $t — $TASK_TITLE   [$TASK_DOMAIN, $TASK_POINTS pts]"
       echo "------------------------------------------------------------"
-      echo "THE TASK WAS:"
-      sed 's/^/  /' "$RHCSA_PROMPTS_DIR/$t.txt" 2>/dev/null || sed 's/^/  /' "$(task_dir "$t")/prompt.txt" 2>/dev/null
+      i18n_echo "THE TASK WAS:"
+      i18n_text "$t" prompt | sed 's/^/  /' 2>/dev/null || sed 's/^/  /' "$(task_dir "$t")/prompt.txt" 2>/dev/null
       echo
-      echo "WHAT FAILED:"
+      i18n_echo "WHAT FAILED:"
       python3 -c '
 import json,sys
 for ln in open(sys.argv[1],encoding="utf-8",errors="replace"):
@@ -1367,19 +1382,19 @@ for ln in open(sys.argv[1],encoding="utf-8",errors="replace"):
         print(f"  - {cp}  ({pts}/{mx})")
         if det: print(f"      [{det}]")' "$f"
       echo
-      echo "EVIDENCE (what an examiner would check on the box):"
+      i18n_echo "EVIDENCE (what an examiner would check on the box):"
       _forensics_body "$t"
       echo
-      echo "HOW TO DO IT:"
+      i18n_echo "HOW TO DO IT:"
       render_solution "$t" >/dev/null 2>&1 || true
-      sed 's/^/  /' "$RHCSA_SOLUTIONS_DIR/$t.txt" 2>/dev/null || sed 's/^/  /' "$(task_dir "$t")/solution.md" 2>/dev/null
+      i18n_text "$t" solution | sed 's/^/  /' 2>/dev/null || sed 's/^/  /' "$(task_dir "$t")/solution.md" 2>/dev/null
     done < <(session_field tasks)
     echo; echo "============================================================"
-    if (( failed == 0 )); then echo "Nothing to review — all $total graded tasks earned full marks."
-    else echo "$failed of $total tasks need work. Re-practice them later with: rhcsa-sim practice weak"; fi
+    if (( failed == 0 )); then i18n_echo "Nothing to review — all $total graded tasks earned full marks."
+    else i18n_echo "$failed of $total tasks need work. Re-practice them later with: rhcsa-sim practice weak"; fi
     if _is_controller_session && [[ "${NODE_ROLE:-}" == node1 ]]; then
-      echo; echo "===================== node2 review ========================="
-      _peer_ssh "rhcsa-sim review" </dev/null 2>/dev/null || echo "(could not fetch node2 review — run 'rhcsa-sim review' on node2)"
+      echo; i18n_echo "===================== node2 review ========================="
+      _peer_ssh "rhcsa-sim review" </dev/null 2>/dev/null || i18n_echo "(could not fetch node2 review — run 'rhcsa-sim review' on node2)"
     fi
   }
   if [[ -t 1 ]] && command -v less >/dev/null 2>&1; then _review_body | less -R; else _review_body; fi
@@ -1404,27 +1419,27 @@ for ln in sys.stdin:
     try: d=json.loads(ln); rows+=1; ok=ok and bool(d.get("ok"))
     except Exception: pass
 sys.exit(0 if (rows and ok) else 1)'; then
-      done=$((done+1)); printf '  %sDONE%s  %-24s %s\n' "$C_GRN" "$C_OFF" "$t" "$TASK_TITLE"
+      done=$((done+1)); i18n_printf '  %sDONE%s  %-24s %s\n' "$C_GRN" "$C_OFF" "$t" "$(i18n_title "$t" "$TASK_TITLE")"
     else
-      printf '  %sTODO%s  %-24s %s\n' "$C_RED" "$C_OFF" "$t" "$TASK_TITLE"
+      i18n_printf '  %sTODO%s  %-24s %s\n' "$C_RED" "$C_OFF" "$t" "$(i18n_title "$t" "$TASK_TITLE")"
     fi
   done < <(session_field tasks)
-  hr; echo "  ${C_BOLD}$done/$total tasks complete${C_OFF} on this node"
+  hr; i18n_echo "  ${C_BOLD}$done/$total tasks complete${C_OFF} on this node"
   if _is_controller_session && [[ "${NODE_ROLE:-}" == node1 ]]; then
     echo; echo "  ${C_BOLD}node2:${C_OFF}"
-    _peer_ssh "rhcsa-sim progress" </dev/null 2>/dev/null | sed 's/^/  /' || echo "  (node2 unreachable — run 'rhcsa-sim progress' there)"
+    _peer_ssh "rhcsa-sim progress" </dev/null 2>/dev/null | sed 's/^/  /' || i18n_echo "  (node2 unreachable — run 'rhcsa-sim progress' there)"
   fi
-  [[ "$(_session_mode)" == exam ]] && echo "${C_DIM}(progress is a practice aid — the real exam gives no feedback)${C_OFF}"
+  [[ "$(_session_mode)" == exam ]] && i18n_echo "${C_DIM}(progress is a practice aid — the real exam gives no feedback)${C_OFF}"
   return 0
 }
 
 cmd_mock() {     # full dress rehearsal: aid-free + logged for the readiness score
   require_root mock
   local sel="${1:-random}"
-  hr; echo "${C_BOLD}${C_YEL}  MOCK EXAM — dress rehearsal${C_OFF}"; hr
-  echo "Exactly like a real attempt: NO hints/solutions/check, points hidden in the"
-  echo "paper, and the result counts toward your readiness score (rhcsa-sim stats)."
-  echo "When you finish, grade THE REAL WAY:  ${C_BOLD}rhcsa-sim grade --reboot${C_OFF}"
+  hr; i18n_echo "${C_BOLD}${C_YEL}  MOCK EXAM — dress rehearsal${C_OFF}"; hr
+  i18n_echo "Exactly like a real attempt: NO hints/solutions/check, points hidden in the"
+  i18n_echo "paper, and the result counts toward your readiness score (rhcsa-sim stats)."
+  i18n_echo "When you finish, grade THE REAL WAY:  ${C_BOLD}rhcsa-sim grade --reboot${C_OFF}"
   echo
   _RHCSA_MOCK=1 cmd_start "$sel"
 }
@@ -1439,9 +1454,9 @@ cmd_drill() {    # ONE random task against a short clock
   [[ -n "$t" ]] || die "no task available to drill."
   load_meta "$t"
   session_active && warn "An existing session will be overwritten."
-  hr; echo "${C_BOLD}${C_YEL}  DRILL — one task, $((secs/60)) minutes on the clock${C_OFF}"; hr
-  echo "  ${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"
-  local a; read -r -p "Seed it and start the clock? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] && { echo "cancelled"; return 0; }
+  hr; i18n_echo "${C_BOLD}${C_YEL}  DRILL — one task, $((secs/60)) minutes on the clock${C_OFF}"; hr
+  i18n_echo "  ${C_BOLD}$t — $TASK_TITLE${C_OFF}  [$TASK_DOMAIN, $TASK_POINTS pts]"
+  local a; i18n_read -r -p "Seed it and start the clock? [Y/n] " a; [[ "$a" =~ ^[Nn] ]] && { echo "cancelled"; return 0; }
   mkdir -p "$RHCSA_STATE" "$RHCSA_RESULTS" "$RHCSA_PARAMS_DIR" "$RHCSA_PROMPTS_DIR"
   rm -f "$RHCSA_RESULTS"/*.jsonl "$RHCSA_PARAMS_DIR"/*.env "$RHCSA_PROMPTS_DIR"/*.txt \
         "$RHCSA_HINTS_DIR"/*.txt "$RHCSA_SOLUTIONS_DIR"/*.txt \
@@ -1454,10 +1469,10 @@ cmd_drill() {    # ONE random task against a short clock
   fi
   session_write "practice-drill" "$secs" "$(date +%s)" "$t"
   hr
-  sed 's/^/  /' "$RHCSA_PROMPTS_DIR/$t.txt" 2>/dev/null
+  i18n_text "$t" prompt | sed 's/^/  /' 2>/dev/null
   hr
-  echo "GO!  $((secs/60)) min on the clock — when done:  ${C_BOLD}rhcsa-sim check $t${C_OFF}   (stuck: hint/solution $t)"
-  if [[ -t 0 && -t 1 ]]; then local b; read -r -p "Open the timer view too? [y/N] " b; [[ "$b" =~ ^[Yy] ]] && cmd_tui; fi
+  i18n_echo "GO!  $((secs/60)) min on the clock — when done:  ${C_BOLD}rhcsa-sim check $t${C_OFF}   (stuck: hint/solution $t)"
+  if [[ -t 0 && -t 1 ]]; then local b; i18n_read -r -p "Open the timer view too? [y/N] " b; [[ "$b" =~ ^[Yy] ]] && cmd_tui; fi
 }
 
 # ---- shared single-task helpers (used by master + troubleshoot) -----------
@@ -1550,20 +1565,20 @@ print(d.get("task",""), int(d.get("streak",0) or 0), int(d.get("round",0) or 0))
     fi
     round=$((round+1))
   else
-    hr; echo "${C_BOLD}${C_YEL}  MASTERY STORM — $t${C_OFF}"; echo "  $TASK_TITLE   [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
-    echo "  Same task, ${C_BOLD}fresh random values every round${C_OFF}. Goal: ${C_BOLD}$GOAL in a row${C_OFF}."
-    echo "  Solve each round, then run the command again to score it."
+    hr; i18n_echo "${C_BOLD}${C_YEL}  MASTERY STORM — $t${C_OFF}"; i18n_echo "  $TASK_TITLE   [$TASK_DOMAIN, $TASK_POINTS pts]"; hr
+    i18n_echo "  Same task, ${C_BOLD}fresh random values every round${C_OFF}. Goal: ${C_BOLD}$GOAL in a row${C_OFF}."
+    i18n_echo "  Solve each round, then run the command again to score it."
     round=1; streak=0
   fi
 
   _reseed_task_fresh "$t"
   session_write "practice-master-$t" "${RHCSA_MASTER_SECONDS:-1800}" "$(date +%s)" "$t"
   python3 -c 'import json,sys;json.dump({"task":sys.argv[1],"streak":int(sys.argv[2]),"round":int(sys.argv[3])},open(sys.argv[4],"w"))' "$t" "$streak" "$round" "$STATE"
-  hr; echo "${C_BOLD}Round $round${C_OFF}   ·   current streak ${C_BOLD}$streak/$GOAL${C_OFF}"; hr
-  sed 's/^/  /' "$RHCSA_PROMPTS_DIR/$t.txt"
+  hr; i18n_echo "${C_BOLD}Round $round${C_OFF}   ·   current streak ${C_BOLD}$streak/$GOAL${C_OFF}"; hr
+  i18n_text "$t" prompt | sed 's/^/  /'
   hr
-  echo "Solve it, then score this round:  ${C_BOLD}rhcsa-sim master $t${C_OFF}"
-  echo "(stuck: hint $t · solution $t   ·   stop: rhcsa-sim master --stop)"
+  i18n_echo "Solve it, then score this round:  ${C_BOLD}rhcsa-sim master $t${C_OFF}"
+  i18n_echo "(stuck: hint $t · solution $t   ·   stop: rhcsa-sim master --stop)"
 }
 
 # ---- Troubleshooting gym: a working system is deliberately broken ----------
@@ -1585,7 +1600,7 @@ cmd_troubleshoot() {  # rhcsa-sim troubleshoot [category]
   t="${cands[RANDOM % ${#cands[@]}]}"
   load_meta "$t"
   session_active && warn "An existing session will be overwritten."
-  hr; echo "${C_BOLD}${C_RED}  TROUBLESHOOTING GYM${C_OFF}  — diagnose and repair a broken system"; hr
+  hr; i18n_echo "${C_BOLD}${C_RED}  TROUBLESHOOTING GYM${C_OFF}  — diagnose and repair a broken system"; hr
   info "Building a working configuration, then breaking it (this takes a moment) ..."
   mkdir -p "$RHCSA_STATE" "$RHCSA_RESULTS" "$RHCSA_PARAMS_DIR" "$RHCSA_PROMPTS_DIR"
   rm -f "$RHCSA_RESULTS"/*.jsonl "$RHCSA_PARAMS_DIR"/*.env "$RHCSA_PROMPTS_DIR"/*.txt \
@@ -1597,24 +1612,24 @@ cmd_troubleshoot() {  # rhcsa-sim troubleshoot [category]
   [[ -n "$symptom" ]] || symptom="the configuration described below is not working as intended"
   local orig; orig="$(cat "$RHCSA_PROMPTS_DIR/$t.txt" 2>/dev/null)"
   {
-    echo "TROUBLESHOOTING — $TASK_TITLE   [$TASK_DOMAIN, $TASK_POINTS pts]"
+    builtin echo "TROUBLESHOOTING — $TASK_TITLE   [$TASK_DOMAIN, $TASK_POINTS pts]"
     echo
-    echo "A previous administrator configured this system to meet the"
-    echo "requirement below, but it is now BROKEN."
+    builtin echo "A previous administrator configured this system to meet the"
+    builtin echo "requirement below, but it is now BROKEN."
     echo
-    echo "SYMPTOM: $symptom"
+    builtin echo "SYMPTOM: $symptom"
     echo
-    echo "Find the root cause and REPAIR the system so the original"
-    echo "requirement is satisfied again:"
+    builtin echo "Find the root cause and REPAIR the system so the original"
+    builtin echo "requirement is satisfied again:"
     echo
-    printf '%s\n' "$orig" | sed 's/^/    /'
+    builtin printf '%s\n' "$orig" | sed 's/^/    /'
   } > "$RHCSA_PROMPTS_DIR/$t.txt"
   session_write "practice-troubleshoot" "${RHCSA_TROUBLE_SECONDS:-900}" "$(date +%s)" "$t"
   hr
-  sed 's/^/  /' "$RHCSA_PROMPTS_DIR/$t.txt"
+  i18n_text "$t" prompt | sed 's/^/  /'
   hr
-  echo "Investigate:  ${C_BOLD}rhcsa-sim forensics $t${C_OFF}   ·   fix, then verify:  ${C_BOLD}rhcsa-sim check $t${C_OFF}"
-  echo "(stuck: hint $t · full fix: solution $t)"
+  i18n_echo "Investigate:  ${C_BOLD}rhcsa-sim forensics $t${C_OFF}   ·   fix, then verify:  ${C_BOLD}rhcsa-sim check $t${C_OFF}"
+  i18n_echo "(stuck: hint $t · full fix: solution $t)"
 }
 
 # --------------------------------------------------------------------------
@@ -1631,7 +1646,7 @@ cmd_doctor() {
   _p(){ ok "$*"; }
   _w(){ warn "$*"; warns=$((warns+1)); }
   _f(){ err "$*"; fails=$((fails+1)); }
-  hr; echo "${C_BOLD}rhcsa-sim doctor — environment preflight${C_OFF}"; hr
+  hr; i18n_echo "${C_BOLD}rhcsa-sim doctor — environment preflight${C_OFF}"; hr
 
   # 1. OS family / version
   if check_distro; then _p "OS: ${RHCSA_DISTRO} — serving the RHCSA ${RHCSA_RHEL} content set"; else _w "OS: ${RHCSA_DISTRO:-unknown} — RHCSA targets RHEL 9 or 10; using the RHCSA ${RHCSA_RHEL} content set, results may differ"; fi
@@ -1703,7 +1718,7 @@ cmd_doctor() {
       else _w "rhcsactl grading account missing — run 'rhcsa-sim node-setup --role ${NODE_ROLE} --peer ${PEER_IP}'"; fi
     fi
   else
-    echo "${C_DIM}(single-node mode; run 'rhcsa-sim node-setup ...' on both VMs for two-node exams)${C_OFF}"
+    i18n_echo "${C_DIM}(single-node mode; run 'rhcsa-sim node-setup ...' on both VMs for two-node exams)${C_OFF}"
   fi
 
   hr
@@ -1745,4 +1760,14 @@ main() {
     *) err "unknown command: $cmd"; usage; exit 1 ;;
   esac
 }
-main "$@"
+. "$RHCSA_HOME/lib/i18n.sh"
+i18n_init "$@" || exit 1
+if [[ "${I18N_ARGS[0]:-}" == lang ]]; then
+  if [[ -n "${I18N_ARGS[1]:-}" ]]; then
+    python3 "$RHCSA_HOME/lib/i18n.py" set "${I18N_ARGS[1]}" || exit 1
+    RHCSA_LANG="${I18N_ARGS[1]}"
+  fi
+  builtin echo "$RHCSA_LANG"
+else
+  main "${I18N_ARGS[@]}"
+fi

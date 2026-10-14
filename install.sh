@@ -78,7 +78,7 @@ systemctl enable --now firewalld >/dev/null 2>&1 || true
 # ---- Copy files ------------------------------------------------------------
 inf "Installing to $PREFIX ..."
 mkdir -p "$PREFIX"
-cp -a "$SRC"/{bin,lib,tui,report,exams,tasks,assets} "$PREFIX"/ 2>/dev/null || true
+cp -a "$SRC"/{bin,lib,tui,report,exams,tasks,assets,locales} "$PREFIX"/ 2>/dev/null || true
 for d in README.md PRACTICE.md; do [[ -f "$SRC/$d" ]] && cp -a "$SRC/$d" "$PREFIX"/ || true; done
 chmod +x "$PREFIX/bin/rhcsa-sim" "$PREFIX/bin/rhcsa-autoview" 2>/dev/null || true
 
