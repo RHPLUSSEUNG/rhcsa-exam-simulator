@@ -343,6 +343,11 @@ cmd_start() {
     *) [[ -r "$RHCSA_EXAMS/$sel.list" || -r "$RHCSA_EXAMS/$sel.2node.list" ]] \
          || die "unknown exam '$sel'. Run 'rhcsa-sim list' for the papers available here." ;;
   esac
+  # A two-node paper needs two paired VMs; without node-setup it would fall through
+  # to the single-node reader and report a confusing "unknown exam".
+  if is_node_exam "$sel" && [[ -z "$role" ]] && ! node_configured; then
+    die "'$sel' is a two-node exam — pair two VMs first ('rhcsa-sim node-setup', see SETUP.md), or pick a single-node paper from 'rhcsa-sim list'."
+  fi
   # Refuse a paper written for the other RHCSA version rather than seeding it:
   # its tasks would be filtered out by release, so the candidate would work
   # against a total they cannot reach.

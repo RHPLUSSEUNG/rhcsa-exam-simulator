@@ -97,7 +97,11 @@ EOF
 RHCSA_STUDENT_PW="${RHCSA_STUDENT_PW:-password}"
 ensure_student() {
   id student >/dev/null 2>&1 || useradd -m -s /bin/bash student 2>/dev/null || return 0
-  echo "student:$RHCSA_STUDENT_PW" | chpasswd 2>/dev/null   # root: pwquality only warns
+  # Set the password only when there is no usable one (new account, or one a task
+  # created with useradd) — never overwrite a password the user chose.
+  case "$(getent shadow student | cut -d: -f2)" in
+    ''|'!'*|'*'*) echo "student:$RHCSA_STUDENT_PW" | chpasswd 2>/dev/null ;;   # root: pwquality only warns
+  esac
   usermod -aG wheel student 2>/dev/null
   chage -M 99999 -E -1 student 2>/dev/null                 # never expired / aged out
   command -v faillock >/dev/null 2>&1 && faillock --user student --reset 2>/dev/null
