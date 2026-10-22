@@ -1,0 +1,5 @@
+TASK_TITLE="Install zsh from the supplied RPM URL"
+TASK_DOMAIN="deploy"
+TASK_POINTS=6
+TASK_RHEL="10"
+TASK_CROSSNODE=1

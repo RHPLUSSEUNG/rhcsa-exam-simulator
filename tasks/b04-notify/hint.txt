@@ -1,0 +1,1 @@
+Use logger, an ExecStart pointing at the script, OnCalendar and daemon-reload. Inspect systemctl show as well as the unit files.

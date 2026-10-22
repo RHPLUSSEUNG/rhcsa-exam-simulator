@@ -1,0 +1,1 @@
+Check passwd fields for UID/shell and the eighth shadow field for account expiration.

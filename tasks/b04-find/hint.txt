@@ -1,0 +1,1 @@
+Combine find ownership/type predicates; use -prune before the action. find -size uses rounded units, so retain the specified +5M comparison.

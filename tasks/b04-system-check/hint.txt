@@ -1,0 +1,1 @@
+Separate the executable script, oneshot service and scheduling timer. A calendar expression with second 00 repeats on each minute boundary.

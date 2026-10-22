@@ -1,0 +1,4 @@
+Create /home/manager owned by root:sysadms with mode 2770. Group members
+must have full access, others none, and new entries must inherit sysadms.
+Also create /shared/projects with mode 1777: anyone may create files, but
+unprivileged users may remove only their own files. sysadms is provided.

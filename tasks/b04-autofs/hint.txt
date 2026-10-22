@@ -1,0 +1,1 @@
+Use an indirect map or a direct map for the requested absolute path. Inspect both the map and the mounted NFS source.

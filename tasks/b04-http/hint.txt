@@ -1,0 +1,1 @@
+Use dnf, restorecon, systemctl and firewall-cmd. Test the actual HTTP response.

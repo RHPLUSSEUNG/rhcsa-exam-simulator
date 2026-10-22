@@ -1,0 +1,1 @@
+Check both compression integrity and archive contents, not just the filename extension.

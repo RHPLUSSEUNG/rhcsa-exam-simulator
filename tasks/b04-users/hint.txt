@@ -1,0 +1,1 @@
+Use usermod, chpasswd, visudo and sudo -l -U. Paths in /bin may resolve through the merged /usr layout.

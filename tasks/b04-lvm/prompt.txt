@@ -1,0 +1,4 @@
+On the shared spare disk, create volume group wgroup with 8 MiB physical
+extents and logical volume wshare with exactly 50 extents. Format it ext4 and
+mount it persistently at /mnt/wshare. Leave room for the separate 400 MiB swap
+task and do not destroy that task's partition or any existing filesystem.

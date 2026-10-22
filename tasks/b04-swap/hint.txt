@@ -1,0 +1,1 @@
+Partition, mkswap, swapon and an fstab entry are separate steps. Check that the active device belongs to the allocated shared disk.

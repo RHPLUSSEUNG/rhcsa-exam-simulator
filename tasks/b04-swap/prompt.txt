@@ -1,0 +1,3 @@
+Create a new 400 MiB swap partition on the shared spare disk. Activate it
+now and make it activate automatically at boot. Preserve existing swap and the
+wgroup/wshare partition. This lab uses MiB for the source exercise's 400 MB size.

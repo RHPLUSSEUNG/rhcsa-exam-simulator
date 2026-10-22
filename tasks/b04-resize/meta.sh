@@ -1,0 +1,5 @@
+TASK_TITLE="Resize VG/VO without losing data"
+TASK_DOMAIN="storage"
+TASK_POINTS=14
+TASK_RHEL="10"
+TASK_CROSSNODE=1

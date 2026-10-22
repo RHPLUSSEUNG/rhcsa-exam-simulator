@@ -1,0 +1,7 @@
+Ensure group sysadms exists. Configure natasha and harry as supplementary
+members; sarah must use /sbin/nologin and must not belong to sysadms.
+Set the passwords of natasha, harry and sarah to trootent. Accounts may already
+exist because other tasks need them; correct their settings instead of recreating them.
+Allow sysadms members to run useradd through sudo. Allow harry to run passwd
+through sudo without a password. The provided account alex must be able to run
+dnf through sudo without a password. The sudoers configuration must be valid.

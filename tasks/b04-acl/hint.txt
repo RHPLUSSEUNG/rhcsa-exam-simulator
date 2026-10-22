@@ -1,0 +1,1 @@
+Use getfacl to inspect effective permissions and d: entries; chmod alone cannot express these named-user exceptions.

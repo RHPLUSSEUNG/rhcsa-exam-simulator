@@ -1,0 +1,1 @@
+Edit chrony.conf and check both enablement and runtime status. Local fixture reachability is different from synchronized time.

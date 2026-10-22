@@ -1,0 +1,5 @@
+Find natasha-owned regular files and directories on the root filesystem and
+copy them, preserving their paths, below /root/natashafiles. Exclude /proc, /sys,
+/dev, /run and the destination itself; do not cross into other filesystems.
+Also copy regular files larger than 5 MiB from /opt/rhcsa-b04/findsrc to
+/find/5mfiles. Do not copy smaller files into that second destination.

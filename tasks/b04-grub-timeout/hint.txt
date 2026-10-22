@@ -1,0 +1,1 @@
+Changing only /etc/default/grub does not regenerate the boot menu. Avoid overwriting a UEFI vendor stub with a full configuration.

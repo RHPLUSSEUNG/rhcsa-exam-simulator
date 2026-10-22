@@ -1,0 +1,4 @@
+Create executable /usr/local/bin/system-check.sh that appends the current
+date to /var/log/system-check.log without truncating it. Create a oneshot
+system-check.service to run the script and system-check.timer to invoke it
+once per minute. Enable and start the timer.

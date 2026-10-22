@@ -1,0 +1,26 @@
+# RHCSA_RHEL: 10
+# Chooblog-inspired practice paper; see docs/exam-r10-2node-04.md for adaptations.
+node1 e2-network
+node1 e2-repo
+node1 b04-rpm-url
+node1 b04-http
+node1 b04-users
+node1 b04-cron
+node1 b04-shared
+node1 b04-ntp
+node1 b04-autofs
+node1 b04-find
+node1 b04-grep
+node1 b04-archives
+node1 b04-acl
+node1 b04-accounts
+node2 root-password
+node2 e2-repo2
+node2 b04-flatpak-user
+node2 b04-resize
+node2 b04-lvm
+node2 b04-swap
+node2 tuning-profile
+node2 b04-grub-timeout
+node2 b04-notify
+node2 b04-system-check

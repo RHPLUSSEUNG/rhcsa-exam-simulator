@@ -1,0 +1,5 @@
+On node2, create executable /usr/local/bin/notify.sh that invokes logger
+with the message "Time for Break!". Create notify.service to run the script,
+and notify.timer to trigger it every day at 07:00 local time. Enable and start
+the timer. Remove any legacy cron entry for this same script, without removing
+unrelated cron jobs. A daily cron entry is provided initially.

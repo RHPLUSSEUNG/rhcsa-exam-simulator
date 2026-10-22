@@ -1,0 +1,3 @@
+Write all lines containing the literal string ich from /usr/share/dict/words
+to /root/lines, in their original order. Include exactly those lines and no
+extra output. The dictionary file is supplied by this lab.

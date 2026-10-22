@@ -1,0 +1,3 @@
+Install httpd and publish exactly "Welcome to RHEL 10" in /var/www/html/index.html.
+Serve the page over HTTP, enable httpd at boot, and allow the http service in
+both the runtime and permanent firewalld configuration. Keep SELinux enforcing.

@@ -64,6 +64,25 @@ sudo ./install.sh        # detects the RHEL version, installs the 'rhcsa-sim' CL
 `rhcsa-sim doctor` and `rhcsa-sim list` then show only what applies to that
 release. (To develop/test the other version on one box: `RHCSA_RHEL=10 rhcsa-sim …`.)
 
+### Update an existing installation
+
+Finish or reset any active exam first, then update the source checkout and run
+the installer again. Repeat this on both nodes of a two-node lab so their task
+and grading files stay at the same revision. The installer replaces the program
+under `/opt/rhcsa-sim` while retaining `/var/lib/rhcsa-sim` state and reports.
+
+```bash
+cd /path/to/rhcsa-exam-simulator
+git switch main
+git pull --ff-only origin main
+sudo ./install.sh
+sudo rhcsa-sim doctor
+```
+
+If all dependencies are already installed and the DVD repository is working,
+`sudo ./install.sh --no-deps` updates only the simulator files and performs the
+remaining installation checks.
+
 ## RHCSA 9 vs. RHCSA 10
 
 Red Hat re-based the EX200 exam on RHEL 10. **The simulator matches whichever
@@ -175,11 +194,24 @@ sudo rhcsa-sim doctor            # run on both — must be GREEN (controller cha
 ### Practice a two-node exam — all from node1
 
 ```bash
-sudo rhcsa-sim list                  # RHEL 9 shows exam-2node-01…08; RHEL 10 shows exam-r10-2node-01…03
+sudo rhcsa-sim list                  # RHEL 9 shows exam-2node-01…08; RHEL 10 shows exam-r10-2node-01…04
 sudo rhcsa-sim start exam-2node-01   # (on RHEL 10: exam-r10-2node-01) — seeds BOTH nodes
 sudo rhcsa-sim tui                   # paper shows both nodes' task groups + a VM panel for node2
 #   do node1 tasks here; for node2:  ssh student@node2.example.com  then  sudo -i
 sudo rhcsa-sim grade --reboot        # reboots + grades both, prints one combined /300 score
+```
+
+### 블로그 기반 RHEL 10 연습 시험 04
+
+`exam-r10-2node-04`는 [Choo’s blog](https://www.chooblog.xyz/blog/rhcsa)의 문제 유형과
+추가 예제를 24문제로 구성합니다. 기존 형식의 한국어/영어 문제·힌트·참고 풀이와
+자동 채점을 제공합니다. **Node2에는 비어 있는 추가 디스크 두 개가 필요합니다.**
+실제 Codium 대신 오프라인 Flatpak 실습 앱을 사용하는 등 환경 차이는
+[문제 대응표와 실행 안내](docs/exam-r10-2node-04.md)를 확인하십시오.
+
+```bash
+sudo rhcsa-sim --lang ko start exam-r10-2node-04
+sudo rhcsa-sim tui
 ```
 
 ## Requirements
