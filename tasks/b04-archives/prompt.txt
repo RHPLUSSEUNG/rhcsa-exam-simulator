@@ -1,0 +1,3 @@
+Back up /usr/local in both /root/backup.tar.bz2 (bzip2) and
+/root/backup.tar.gz (gzip). Both archives must include the directory contents,
+including /usr/local/share/rhcsa-b04/README, with the usr/local path retained.

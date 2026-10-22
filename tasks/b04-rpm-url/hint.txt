@@ -1,0 +1,1 @@
+Pass the full URL to dnf install, then query the installed RPM.

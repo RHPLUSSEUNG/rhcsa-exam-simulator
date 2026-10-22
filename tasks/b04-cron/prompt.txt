@@ -1,0 +1,7 @@
+Configure these cron entries without discarding unrelated entries:
+* natasha: every 2 minutes, logger "EX200 in progress".
+* natasha: daily at 12:30, /bin/echo "Hello World" appended to /home/natasha/hello.log.
+* root: daily at 00:45, find and delete empty regular files below /tmp.
+Allow only tom among non-root users to manage crontabs through /etc/cron.allow.
+Existing natasha jobs must still be scheduled; root may administer their crontab.
+Enable and run crond. natasha and tom are provided.

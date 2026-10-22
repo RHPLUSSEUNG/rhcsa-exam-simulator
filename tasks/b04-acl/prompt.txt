@@ -1,0 +1,7 @@
+Copy /etc/fstab to /var/tmp/fstab, owned by root:root and executable by nobody.
+natasha must have read/write access; harry must have no read/write access;
+all other current and future users must have read access.
+On /groups/accounting, grant group finance r-x access and a default ACL entry
+of r-x for new children. Neither the group nor the directory needs to be created.
+Regular files created without execute bits may inherit only effective read access;
+do not force executable permission on every new regular file.

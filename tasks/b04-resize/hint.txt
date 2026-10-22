@@ -1,0 +1,1 @@
+Check lvs, the mounted filesystem and the original data. Extending only the block device is insufficient.

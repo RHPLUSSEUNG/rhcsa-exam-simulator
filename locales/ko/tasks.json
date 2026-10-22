@@ -1684,5 +1684,119 @@
     "prompt": "swap 파티션 생성\n\n여분 디스크에 512 MiB 새 파티션을 만들고 swap으로 포맷하십시오. swap 공간을 활성화하고 매 부팅 시 자동으로 활성화되게 하십시오.\n",
     "solution": "# 참고 풀이 — swap 파티션 생성\n\n이 디스크는 LVM 문제와 공유하므로 파티션을 **추가**하십시오. 디스크 전체의 레이블을 다시 만들지 마십시오. 답안은 /dev/vdb의 파티션 3을 사용합니다.\n\n> 시스템의 여분 디스크를 사용하십시오. `lsblk`로 확인하며 여기서는 `/dev/vdb`입니다.\n\n```bash\nfdisk /dev/vdb\n   # n -> p -> 3 -> <enter> -> +512M     (new 512 MiB partition)\n   # t -> 3 -> 82                        (type: Linux swap)\n   # w\nudevadm settle\nmkswap /dev/vdb3\n# make it persistent by UUID (don't disturb existing fstab lines):\necho \"UUID=$(blkid -s UUID -o value /dev/vdb3)  swap  swap  defaults,nofail  0 0\" >> /etc/fstab\nswapon -a\nfree -m        # verify the total swap increased by ~512 MiB\n```\n",
     "hint": "접근 방법: swap 파티션 생성\n단계:\n  • n -> p -> 3 -> <enter> -> +512M (새 512 MiB 파티션)\n  • t -> 3 -> 82 (유형: Linux swap)\n  • w\n  • 기존 fstab 행을 건드리지 않고 UUID로 영구 설정합니다:\n사용할 명령: fdisk, udevadm, mkswap, echo, swapon, free\n문서: man fdisk  ·  man udevadm  ·  man mkswap\n\n(계속 막히면 rhcsa-sim solution TASK로 전체 참고 풀이를 확인하십시오.)\n"
+  },
+  "b04-http": {
+    "title": "영구 HTTP 환영 페이지 제공",
+    "prompt": "httpd를 설치하고 /var/www/html/index.html에 정확히 \"Welcome to RHEL 10\"을 기록하십시오.\nHTTP로 페이지를 제공하고 httpd를 부팅 시 활성화하십시오. firewalld의 런타임 및\n영구 설정 모두에서 http 서비스를 허용하며 SELinux는 enforcing으로 유지하십시오.\n",
+    "solution": "# 참고 풀이 — 영구 HTTP 환영 페이지 제공\n\n서버 설치, 문서 작성, 정책 컨텍스트 복원 후 서비스와 방화벽의 영구 설정을 적용합니다.\n\n```bash\ndnf -y install httpd\nprintf '%s\\n' 'Welcome to RHEL 10' >/var/www/html/index.html\nrestorecon -RF /var/www/html\nsystemctl enable --now httpd\nfirewall-cmd --permanent --add-service=http\nfirewall-cmd --reload\n```\n\n## 확인\n\n```bash\ncurl -f http://localhost/\nsystemctl is-enabled httpd\nfirewall-cmd --permanent --query-service=http\n```\n",
+    "hint": "dnf, restorecon, systemctl, firewall-cmd를 사용하고 실제 HTTP 응답을 확인하십시오.\n"
+  },
+  "b04-users": {
+    "title": "계정 및 명령별 sudo 권한 설정",
+    "prompt": "sysadms 그룹을 준비하고 natasha와 harry를 보조 그룹 구성원으로 설정하십시오.\nsarah의 셸은 /sbin/nologin이어야 하며 sysadms에 속하면 안 됩니다.\nnatasha, harry, sarah의 비밀번호는 trootent로 설정하십시오. 다른 문제의 선행 조건으로\n계정이 이미 있을 수 있으며 다시 만들지 말고 설정을 바로잡으십시오.\nsysadms 구성원이 sudo로 useradd를 실행할 수 있게 하십시오. harry는 비밀번호 없이\nsudo로 passwd를, 제공된 alex 계정은 비밀번호 없이 sudo로 dnf를 실행할 수 있어야 합니다.\nsudoers 구문이 유효해야 합니다.\n",
+    "solution": "# 참고 풀이 — 계정 및 명령별 sudo 권한 설정\n\n-aG로 기존 보조 그룹을 유지하며 추가합니다. 기본 그룹을 바꾸지 않습니다. sudoers 개별 파일로 필요한 명령을 위임하고 구문을 검사합니다. ALL 전체 권한은 필수가 아닙니다.\n\n```bash\ngroupadd -f sysadms\nfor u in natasha harry sarah; do id \"$u\" >/dev/null 2>&1 || useradd -m \"$u\"; done\nusermod -aG sysadms natasha\nusermod -aG sysadms harry\nusermod -s /sbin/nologin sarah\ngpasswd -d sarah sysadms 2>/dev/null || true\nprintf '%s\\n' 'natasha:trootent' 'harry:trootent' 'sarah:trootent' | chpasswd\ncat >/etc/sudoers.d/rhcsa-b04 <<'EOF'\n%sysadms ALL=(ALL) /usr/sbin/useradd\nharry ALL=(ALL) NOPASSWD: /usr/bin/passwd\nalex ALL=(ALL) NOPASSWD: /usr/bin/dnf\nEOF\nchmod 0440 /etc/sudoers.d/rhcsa-b04\nvisudo -c\n```\n\n## 확인\n\n```bash\nid natasha\nid harry\ngetent passwd sarah\nsudo -l -U harry\nsudo -l -U alex\n```\n",
+    "hint": "usermod, chpasswd, visudo, sudo -l -U를 사용하십시오. /bin 경로는 /usr 통합 구조의 같은 실행 파일을 가리킬 수 있습니다.\n"
+  },
+  "b04-cron": {
+    "title": "cron 예약 및 사용 제한 설정",
+    "prompt": "관련 없는 기존 항목을 지우지 말고 다음 cron 작업을 설정하십시오.\n* natasha: 2분마다 logger \"EX200 in progress\" 실행\n* natasha: 매일 12:30에 /bin/echo \"Hello World\" 출력을 /home/natasha/hello.log에 추가\n* root: 매일 00:45에 /tmp 아래의 비어 있는 일반 파일을 찾아 삭제\n/etc/cron.allow를 사용하여 root를 제외한 사용자 중 tom만 crontab을 관리할 수 있게 하십시오.\nnatasha의 기존 예약 작업은 유지해야 하며 root가 해당 crontab을 관리할 수 있습니다.\ncrond를 활성화하여 실행하십시오. natasha와 tom은 제공됩니다.\n",
+    "solution": "# 참고 풀이 — cron 예약 및 사용 제한 설정\n\ncron.allow는 crontab 명령 접근을 제한하며 이미 설치된 예약 작업의 실행을 막지 않습니다. root가 natasha의 작업을 등록한 뒤 일반 사용자 관리를 제한합니다.\n\n```bash\nfor u in natasha tom; do id \"$u\" >/dev/null 2>&1 || useradd -m \"$u\"; done\n{ crontab -u natasha -l 2>/dev/null; cat <<'EOF'\n*/2 * * * * /usr/bin/logger \"EX200 in progress\"\n30 12 * * * /bin/echo \"Hello World\" >> /home/natasha/hello.log\nEOF\n} | crontab -u natasha -\n{ crontab -u root -l 2>/dev/null; echo '45 0 * * * /usr/bin/find /tmp -type f -empty -delete'; } | crontab -u root -\nprintf 'tom\\n' >/etc/cron.allow\nsystemctl enable --now crond\n```\n\n## 확인\n\n```bash\ncrontab -u natasha -l\ncrontab -u root -l\ncat /etc/cron.allow\n```\n",
+    "hint": "다섯 시간 필드와 > 및 >>의 차이를 확인하십시오. root의 사용자 crontab에는 사용자명 필드를 넣지 않습니다.\n"
+  },
+  "b04-shared": {
+    "title": "공동 작업 및 sticky 디렉터리 설정",
+    "prompt": "root:sysadms 소유, 모드 2770인 /home/manager를 생성하십시오. 그룹 구성원은 모든\n접근 권한을 가지며 다른 사용자에게는 권한이 없어야 합니다. 새 항목은 sysadms를 상속해야 합니다.\n/shared/projects도 모드 1777로 생성하여 누구나 파일을 만들 수 있지만 일반 사용자는\n자기 파일만 삭제할 수 있게 하십시오. sysadms 그룹은 제공됩니다.\n",
+    "solution": "# 참고 풀이 — 공동 작업 및 sticky 디렉터리 설정\n\nset-GID는 새 항목의 소유 그룹 상속을 제어합니다. sticky 비트는 쓰기 가능한 디렉터리의 삭제를 제한하며 일반 읽기/쓰기 권한을 대신하지 않습니다.\n\n```bash\nmkdir -p /home/manager /shared/projects\nchown root:sysadms /home/manager\nchmod 2770 /home/manager\nchmod 1777 /shared/projects\n```\n\n## 확인\n\n```bash\nls -ld /home/manager /shared/projects\n```\n",
+    "hint": "chown과 chmod의 맨 앞 특수 권한 숫자를 사용하십시오. 두 디렉터리는 서로 다른 특수 비트가 필요합니다.\n"
+  },
+  "b04-ntp": {
+    "title": "지정 chrony 시간 원본 설정",
+    "prompt": "chrony가 iburst 옵션으로 ntp.example.com을 사용하도록 설정하고 chronyd를 활성화하여 실행하십시오.\n이 오프라인 실습은 ntp.example.com을 로컬 실습 자원으로 해석합니다. 채점은 지정 원본과\n서비스를 검사하며 인터넷 시간 동기화의 성공 여부를 요구하지 않습니다.\n",
+    "solution": "# 참고 풀이 — 지정 chrony 시간 원본 설정\n\n기본 pool을 그대로 두지 말고 지정 원본을 설정합니다. 실제 서버에 접근할 수 있을 때 iburst가 초기 샘플 수집을 빠르게 합니다.\n\n```bash\nsed -i -E '/^[[:space:]]*(server|pool)[[:space:]]/s/^/# /' /etc/chrony.conf\necho 'server ntp.example.com iburst' >>/etc/chrony.conf\nsystemctl enable --now chronyd\nsystemctl restart chronyd\n```\n\n## 확인\n\n```bash\ngrep -E \"^(server|pool)\" /etc/chrony.conf\nsystemctl is-enabled chronyd\nchronyc sources -v\n```\n",
+    "hint": "chrony.conf와 서비스의 활성화·실행 상태를 확인하십시오. 로컬 실습 원본 접근과 시간 동기화 완료는 서로 다른 상태입니다.\n"
+  },
+  "b04-autofs": {
+    "title": "public NFS 공유 자동 마운트",
+    "prompt": "autofs를 사용하여 /data/public 접근 시 localhost:/shares/public을 읽기/쓰기로 마운트하십시오.\nautofs를 부팅 시 활성화하고 실행 상태로 유지하십시오. NFS 서버는 미리 설정된 오프라인\n실습 자원입니다. 이 문제를 고정 fstab 마운트로 대체하면 안 됩니다.\n",
+    "solution": "# 참고 풀이 — public NFS 공유 자동 마운트\n\n마스터 맵이 /data와 맵 파일을 연결하고 public 키가 NFS 원본을 선택합니다. 경로 접근이 마운트를 유발하며 /etc/fstab 항목만으로는 autofs 설정이 되지 않습니다.\n\n```bash\nmkdir -p /etc/auto.master.d\necho '/data /etc/auto.b04-public' >/etc/auto.master.d/b04-public.autofs\necho 'public -rw,sync,fstype=nfs localhost:/shares/public' >/etc/auto.b04-public\nsystemctl enable --now autofs\nsystemctl restart autofs\nls /data/public/README\n```\n\n## 확인\n\n```bash\nautomount -m\nfindmnt -T /data/public\n```\n",
+    "hint": "요청한 경로의 간접 맵 또는 직접 맵을 사용하십시오. 맵 설정과 실제 마운트된 NFS 원본을 모두 확인합니다.\n"
+  },
+  "b04-find": {
+    "title": "소유자 및 크기 기준 파일 검색",
+    "prompt": "루트 파일시스템에서 natasha 소유의 일반 파일과 디렉터리를 찾아 원래 경로 구조를\n/root/natashafiles 아래에 보존하여 복사하십시오. /proc, /sys, /dev, /run 및 복사 대상\n자체는 제외하고 다른 파일시스템으로 넘어가지 마십시오.\n/opt/rhcsa-b04/findsrc에서 5 MiB보다 큰 일반 파일도 찾아 /find/5mfiles로 복사하십시오.\n두 번째 대상에는 더 작은 파일을 포함하면 안 됩니다.\n",
+    "solution": "# 참고 풀이 — 소유자 및 크기 기준 파일 검색\n\n복사 대상을 prune하여 복사본을 다시 복사하는 재귀를 막습니다. --parents는 원본 경로를 보존합니다. 크기 변형은 가상 파일이나 DVD 전체 대신 정해진 실습 트리에서 수행합니다.\n\n```bash\nmkdir -p /root/natashafiles /find/5mfiles\nfind / -xdev   \\( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /root/natashafiles \\) -prune -o   -user natasha \\( -type f -o -type d \\) -exec cp -a --parents -t /root/natashafiles {} +\nfind /opt/rhcsa-b04/findsrc -type f -size +5M -exec cp -a -t /find/5mfiles {} +\n```\n\n## 확인\n\n```bash\nfind /root/natashafiles/opt/rhcsa-b04/findsrc -ls\nls -lh /find/5mfiles\n```\n",
+    "hint": "find의 소유자·유형 조건과 -prune을 조합하십시오. -size는 단위를 반올림하여 비교하므로 지정된 +5M 조건을 유지합니다.\n"
+  },
+  "b04-grep": {
+    "title": "일치하는 사전 행 추출",
+    "prompt": "/usr/share/dict/words에서 리터럴 문자열 ich가 포함된 모든 행을 원래 순서대로\n/root/lines에 기록하십시오. 일치하는 행만 포함하고 다른 출력을 추가하지 마십시오.\n사전 파일은 실습 환경에서 제공합니다.\n",
+    "solution": "# 참고 풀이 — 일치하는 사전 행 추출\n\n대소문자를 구분하는 리터럴 검색을 사용하고 >로 결과를 덮어씁니다. 파일명, 행 번호, 개수를 추가하지 않습니다.\n\n```bash\ngrep -F ich /usr/share/dict/words >/root/lines\n```\n\n## 확인\n\n```bash\ncat /root/lines\n```\n",
+    "hint": "grep -F는 일치 행의 순서를 유지합니다. -n, -c, -v는 사용하지 마십시오.\n"
+  },
+  "b04-archives": {
+    "title": "/usr/local을 두 압축 형식으로 보관",
+    "prompt": "/usr/local을 /root/backup.tar.bz2(bzip2)와 /root/backup.tar.gz(gzip) 두 형식으로\n백업하십시오. 두 아카이브 모두 /usr/local/share/rhcsa-b04/README를 포함한 디렉터리\n내용을 담아야 하며 usr/local 경로를 보존해야 합니다.\n",
+    "solution": "# 참고 풀이 — /usr/local을 두 압축 형식으로 보관\n\n-j는 bzip2, -z는 gzip을 선택합니다. -C /를 사용하면 절대 파일명 대신 일관된 상대 멤버 경로를 저장합니다.\n\n```bash\ntar -C / -cjf /root/backup.tar.bz2 usr/local\ntar -C / -czf /root/backup.tar.gz usr/local\n```\n\n## 확인\n\n```bash\ntar -tjf /root/backup.tar.bz2\ntar -tzf /root/backup.tar.gz\n```\n",
+    "hint": "확장자뿐 아니라 압축 무결성과 아카이브 내부 내용도 확인하십시오.\n"
+  },
+  "b04-acl": {
+    "title": "특정 사용자 및 상속 ACL 설정",
+    "prompt": "/etc/fstab을 /var/tmp/fstab으로 복사하고 root:root 소유로 설정하며 누구도 실행할 수 없게 하십시오.\nnatasha는 읽기/쓰기, harry는 읽기/쓰기 불가, 현재 및 향후의 다른 모든 사용자는 읽기 가능해야 합니다.\n제공된 /groups/accounting에서 finance 그룹에 r-x 접근 권한을 부여하고 새 하위 항목용 기본 ACL도\nr-x로 설정하십시오. 그룹과 디렉터리는 이미 있습니다. 실행 비트 없이 만드는 일반 파일은\n유효 읽기 권한만 상속할 수 있으며 모든 새 일반 파일에 실행 권한을 강제로 부여하지 마십시오.\n",
+    "solution": "# 참고 풀이 — 특정 사용자 및 상속 ACL 설정\n\n특정 사용자 ACL은 기타 사용자 클래스보다 우선합니다. 항목 자체뿐 아니라 ACL 마스크도 검사합니다. 기본 ACL 상속은 생성 모드의 제한을 받으므로 0666 파일을 실행 가능하게 만들지 않습니다.\n\n```bash\ncp /etc/fstab /var/tmp/fstab\nchown root:root /var/tmp/fstab\nchmod 0644 /var/tmp/fstab\nsetfacl -m u:natasha:rw-,u:harry:---,o::r-- /var/tmp/fstab\nsetfacl -m g:finance:r-x /groups/accounting\nsetfacl -m d:g:finance:r-x /groups/accounting\n```\n\n## 확인\n\n```bash\ngetfacl -p /var/tmp/fstab /groups/accounting\n```\n",
+    "hint": "getfacl로 유효 권한과 d: 항목을 확인하십시오. chmod만으로 특정 사용자 예외를 표현할 수 없습니다.\n"
+  },
+  "b04-accounts": {
+    "title": "UID·셸·계정 만료 설정",
+    "prompt": "unilao 계정의 UID를 2334, 비밀번호를 souspolo, 셸을 /sbin/nologin으로 설정하십시오.\n제공된 sam 계정의 로그인 셸을 /bin/bash로, 계정 만료일을 2029-12-21로 설정하십시오.\n계정 만료와 비밀번호 만료를 혼동하지 마십시오.\n",
+    "solution": "# 참고 풀이 — UID·셸·계정 만료 설정\n\n기존 사용자에는 usermod를 사용하고 계정 만료일은 chage -E로 설정합니다. 비밀번호가 있어도 nologin 셸은 대화형 셸 접근을 거부합니다.\n\n```bash\nif id unilao >/dev/null 2>&1; then\n  usermod -u 2334 -s /sbin/nologin unilao\nelse\n  useradd -m -u 2334 -s /sbin/nologin unilao\nfi\necho 'unilao:souspolo' | chpasswd\nusermod -s /bin/bash sam\nchage -E 2029-12-21 sam\n```\n\n## 확인\n\n```bash\nid unilao\ngetent passwd unilao sam\nchage -l sam\n```\n",
+    "hint": "passwd 필드에서 UID·셸을 확인하고 shadow의 여덟 번째 필드에서 계정 만료를 확인하십시오.\n"
+  },
+  "b04-notify": {
+    "title": "07:00 일일 logger 서비스 예약",
+    "prompt": "node2에서 logger로 \"Time for Break!\"을 기록하는 실행 가능한 /usr/local/bin/notify.sh를 작성하십시오.\n스크립트를 실행하는 notify.service와 현지 시각 매일 07:00에 호출하는 notify.timer를 생성하십시오.\n타이머를 활성화하여 시작하고 같은 스크립트의 기존 cron 항목을 제거하십시오.\n다른 cron 작업은 유지해야 합니다. 초기 상태에 일일 cron 항목이 제공됩니다.\n",
+    "solution": "# 참고 풀이 — 07:00 일일 logger 서비스 예약\n\noneshot 서비스가 작업을 수행하고 캘린더 타이머가 실행 시각을 정합니다. 서비스가 아닌 타이머를 활성화합니다. 이전 과정에서 다른 cron 항목을 보존합니다.\n\n```bash\ncat >/usr/local/bin/notify.sh <<'EOF'\n#!/usr/bin/env bash\nlogger \"Time for Break!\"\nEOF\nchmod +x /usr/local/bin/notify.sh\ncat >/etc/systemd/system/notify.service <<'EOF'\n[Unit]\nDescription=Daily break notification\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/notify.sh\nEOF\ncat >/etc/systemd/system/notify.timer <<'EOF'\n[Unit]\nDescription=Run the daily break notification\n[Timer]\nOnCalendar=*-*-* 07:00:00\nPersistent=true\n[Install]\nWantedBy=timers.target\nEOF\ncrontab -u root -l 2>/dev/null | grep -v '/usr/local/bin/notify.sh' | crontab -u root -\nsystemctl daemon-reload\nsystemctl enable --now notify.timer\n```\n\n## 확인\n\n```bash\nsystemctl cat notify.service notify.timer\nsystemctl list-timers --all notify.timer\n```\n",
+    "hint": "logger, 스크립트를 가리키는 ExecStart, OnCalendar, daemon-reload를 사용하십시오. 유닛 파일뿐 아니라 systemctl show 결과도 확인합니다.\n"
+  },
+  "b04-system-check": {
+    "title": "1분 systemd 타이머로 날짜 추가 기록",
+    "prompt": "현재 날짜를 /var/log/system-check.log에 기존 내용을 지우지 않고 추가하는 실행 가능한\n/usr/local/bin/system-check.sh를 작성하십시오. 이를 실행하는 oneshot system-check.service와\n1분마다 호출하는 system-check.timer를 생성하고 타이머를 활성화하여 시작하십시오.\n",
+    "solution": "# 참고 풀이 — 1분 systemd 타이머로 날짜 추가 기록\n\n>>로 이전 로그를 보존합니다. 로그는 스크립트 옆이 아닌 /var/log에 기록합니다. 유닛 정의 갱신에는 daemon-reload를 사용하며 daemon-restart는 올바른 명령이 아닙니다.\n\n```bash\ncat >/usr/local/bin/system-check.sh <<'EOF'\n#!/usr/bin/env bash\ndate >> /var/log/system-check.log\nEOF\nchmod +x /usr/local/bin/system-check.sh\ncat >/etc/systemd/system/system-check.service <<'EOF'\n[Unit]\nDescription=Append the current date to the system check log\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/system-check.sh\nEOF\ncat >/etc/systemd/system/system-check.timer <<'EOF'\n[Unit]\nDescription=Run the system check once per minute\n[Timer]\nOnCalendar=*-*-* *:*:00\nPersistent=true\n[Install]\nWantedBy=timers.target\nEOF\nsystemctl daemon-reload\nsystemctl enable --now system-check.timer\n```\n\n## 확인\n\n```bash\nsystemctl list-timers --all system-check.timer\ntail /var/log/system-check.log\n```\n",
+    "hint": "실행 스크립트, oneshot 서비스, 예약 타이머를 구분하십시오. 초를 00으로 지정한 캘린더 표현식은 매 분 경계에서 반복합니다.\n"
+  },
+  "b04-flatpak-user": {
+    "title": "사용자 범위 Flatpak 원격 저장소 및 앱 설정",
+    "prompt": "student 사용자 범위에만 flatdb라는 Flatpak 원격 저장소를 추가하십시오.\nURL은 file:///opt/rhcsa-b04/flatpak/repo이며 com.example.CodiumPractice를 이 원본에서 설치하십시오.\n서명되지 않은 저장소이므로 --no-gpg-verify를 사용하십시오. 시스템 범위 flatdb 원격 저장소나\n이 앱의 시스템 전체 설치는 허용하지 않습니다. 제공 앱은 Codium 유형 실습을 위한 작은\n오프라인 모형이며 실제 VSCodium 편집기가 아닙니다.\n",
+    "solution": "# 참고 풀이 — 사용자 범위 Flatpak 원격 저장소 및 앱 설정\n\n원격 저장소 추가와 앱 설치 모두 student로 --user를 사용합니다. 시스템 전체 설치로 대체할 수 없습니다. 오프라인 모형으로 Flathub 접근 없이 범위와 원본을 검증합니다.\n\n```bash\nrunuser -u student -- env HOME=/home/student flatpak --user remote-add --if-not-exists --no-gpg-verify flatdb file:///opt/rhcsa-b04/flatpak/repo\nrunuser -u student -- env HOME=/home/student flatpak --user install -y flatdb com.example.CodiumPractice\n```\n\n## 확인\n\n```bash\nrunuser -u student -- env HOME=/home/student flatpak --user remotes\nrunuser -u student -- env HOME=/home/student flatpak --user list --app\n```\n",
+    "hint": "root로 --user를 실행하면 student가 아니라 root의 사용자 설치를 변경합니다. runuser 사용 시 올바른 HOME도 지정하십시오.\n"
+  },
+  "b04-resize": {
+    "title": "데이터를 유지하며 VG/VO 크기 변경",
+    "prompt": "ext4 논리 볼륨 VG/VO가 /mnt/b04-vo에 마운트되어 데이터를 포함합니다.\nLV와 파일시스템을 모두 230 MiB로 변경하십시오. 217 MiB부터 243 MiB까지 허용합니다.\n기존 데이터를 유지하고 영구 마운트를 사용할 수 있게 하십시오. 이 문제는 wgroup 및\n새 swap의 공유 디스크와 별개의 여분 디스크를 사용합니다.\n",
+    "solution": "# 참고 풀이 — 데이터를 유지하며 VG/VO 크기 변경\n\n230M은 최종 크기이고 +230M은 현재 크기에 더할 양입니다. -r로 ext4와 LV를 함께 확장합니다. 허용 범위는 익스텐트 반올림을 고려합니다.\n\n```bash\nlvextend -r -L 230M /dev/VG/VO\n```\n\n## 확인\n\n```bash\nlvs VG/VO\ndf -h /mnt/b04-vo\ncat /mnt/b04-vo/important.txt\n```\n",
+    "hint": "lvs, 마운트된 파일시스템 및 원래 데이터를 확인하십시오. 블록 장치만 확장해서는 충분하지 않습니다.\n"
+  },
+  "b04-lvm": {
+    "title": "wgroup/wshare ext4 논리 볼륨 생성",
+    "prompt": "공유 여분 디스크에 PE 크기 8 MiB인 wgroup 볼륨 그룹과 정확히 익스텐트 50개인\nwshare 논리 볼륨을 생성하십시오. ext4로 포맷하고 /mnt/wshare에 영구 마운트하십시오.\n별도 400 MiB swap 문제의 공간을 남기고 해당 파티션이나 기존 파일시스템을 훼손하지 마십시오.\n",
+    "solution": "# 참고 풀이 — wgroup/wshare ext4 논리 볼륨 생성\n\n8 MiB × 익스텐트 50개는 400 MiB입니다. swap이 이미 있다면 디스크 레이블을 다시 만들지 말고 새 GPT 파티션을 추가합니다. 자동 풀이 스크립트는 빈 파티션 번호를 선택하며 아래는 fdisk 대화형 절차입니다.\n\n```bash\nlsblk\n# Replace /dev/vdb with the actual shared spare disk shown by the lab.\nfdisk /dev/vdb\n# n: add a partition, accept the next free number/start, enter +480M.\n# t: select the new partition and the Linux LVM type, then w.\n# Do NOT use g to replace an existing partition table containing swap.\npart=/dev/vdb1  # Replace with the NEW partition from lsblk, possibly /dev/vdb2.\npvcreate \"$part\"\nvgcreate -s 8M wgroup \"$part\"\nlvcreate -l 50 -n wshare wgroup\nmkfs.ext4 /dev/wgroup/wshare\nmkdir -p /mnt/wshare\nuuid=\"$(blkid -s UUID -o value /dev/wgroup/wshare)\"\necho \"UUID=$uuid /mnt/wshare ext4 defaults,nofail 0 0\" >>/etc/fstab\nsystemctl daemon-reload\nmount /mnt/wshare\n```\n\n## 확인\n\n```bash\nvgs wgroup\nlvs wgroup/wshare\nfindmnt /mnt/wshare\n```\n",
+    "hint": "lsblk로 공유 디스크를 확인하십시오. lvcreate -l은 익스텐트 개수이고 -L은 절대 크기입니다.\n"
+  },
+  "b04-swap": {
+    "title": "400 MiB swap 파티션 영구 추가",
+    "prompt": "공유 여분 디스크에 새 400 MiB swap 파티션을 생성하고 지금 활성화하며 부팅 시 자동으로\n활성화되게 하십시오. 기존 swap과 wgroup/wshare 파티션을 보존하십시오.\n이 실습은 원문의 400 MB 조건을 시뮬레이터 단위인 MiB로 적용합니다.\n",
+    "solution": "# 참고 풀이 — 400 MiB swap 파티션 영구 추가\n\nfstab에는 새 항목을 추가합니다. >로 덮어쓰면 파일 전체를 잃습니다. 기존 LVM 파티션이 아닌 새 파티션을 사용하고 swapoff -a를 실행하지 않습니다.\n\n```bash\nlsblk\nfdisk /dev/vdb  # Substitute the actual shared spare disk.\n# n: add the NEXT free partition with size +400M; t: Linux swap; w: save.\n# Never replace a partition table that contains the wgroup PV.\npart=/dev/vdb2  # Substitute the newly created partition identified with lsblk.\nmkswap \"$part\"\nuuid=\"$(blkid -s UUID -o value \"$part\")\"\necho \"UUID=$uuid none swap defaults 0 0\" >>/etc/fstab\nswapon \"$part\"\n```\n\n## 확인\n\n```bash\nswapon --show\nfindmnt --verify\n```\n",
+    "hint": "파티션 생성, mkswap, swapon, fstab 등록은 별도 단계입니다. 활성 장치가 할당된 공유 디스크에 속하는지 확인하십시오.\n"
+  },
+  "b04-grub-timeout": {
+    "title": "GRUB 메뉴 대기 시간 설정 및 재생성",
+    "prompt": "/etc/default/grub에 GRUB_TIMEOUT=10을 설정하고 실제 부트로더 설정을 재생성하여\n대기 시간을 10초로 적용하십시오. 정상 기본 부팅 타깃을 유지하십시오.\n이 문제는 emergency 모드에 머물도록 요구하지 않습니다.\n",
+    "solution": "# 참고 풀이 — GRUB 메뉴 대기 시간 설정 및 재생성\n\n원본 설정을 편집하고 RHEL 10의 /boot/grub2/grub.cfg를 재생성합니다. 원문이 소개한 systemd.unit=emergency.target은 선택적인 일회성 복구 연습이며 영구 기본 상태로 남기지 않습니다.\n\n```bash\nsed -i '/^[[:space:]]*GRUB_TIMEOUT=/d' /etc/default/grub\necho 'GRUB_TIMEOUT=10' >>/etc/default/grub\ngrub2-mkconfig -o /boot/grub2/grub.cfg\n```\n\n## 확인\n\n```bash\ngrep GRUB_TIMEOUT /etc/default/grub\ngrep -E \"set timeout=\" /boot/grub2/grub.cfg\n```\n",
+    "hint": "/etc/default/grub만 바꾸어도 부팅 메뉴가 재생성되지는 않습니다. UEFI 공급자 stub 파일을 전체 설정으로 덮어쓰지 마십시오.\n"
+  },
+  "b04-rpm-url": {
+    "title": "제공된 RPM URL에서 zsh 설치",
+    "prompt": "http://127.0.0.1:8274/zsh.rpm을 사용하여 zsh를 설치하십시오. 실습 환경은 연결된\nRHEL 10 DVD에서 찾은 RPM을 이 URL로 제공합니다. 제공된 실습용 서비스는 실행 상태로\n유지하십시오. 채점은 패키지 설치 상태를 확인하며 설치에 사용한 명령 자체는 판별하지 않습니다.\n",
+    "solution": "# 참고 풀이 — 제공된 RPM URL에서 zsh 설치\n\ndnf의 패키지 인자에 URL을 지정합니다. 로컬 HTTP 서버는 제공되는 실습 자원이며 응시자가 설정하는 80번 포트 httpd와 별개입니다. 의존 패키지는 DVD 저장소에서 해결합니다.\n\n```bash\ndnf -y install http://127.0.0.1:8274/zsh.rpm\n```\n\n## 확인\n\n```bash\nrpm -q zsh\nzsh --version\n```\n",
+    "hint": "dnf install에 전체 URL을 전달한 다음 설치된 RPM을 조회하십시오.\n"
   }
 }

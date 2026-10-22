@@ -1,0 +1,1 @@
+Use lsblk to identify the shared disk. lvcreate -l counts extents; -L specifies an absolute size.

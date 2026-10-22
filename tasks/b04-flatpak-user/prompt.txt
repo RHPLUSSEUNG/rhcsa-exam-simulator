@@ -1,0 +1,5 @@
+For student only, add a Flatpak remote named flatdb pointing to
+file:///opt/rhcsa-b04/flatpak/repo and install com.example.CodiumPractice from it.
+The repository is unsigned; use --no-gpg-verify. Do not create a system remote
+named flatdb or install this app system-wide. The provided app is a small offline
+training fixture for the Codium-style exercise, NOT the actual VSCodium editor.

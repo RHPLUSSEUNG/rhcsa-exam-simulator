@@ -1,0 +1,3 @@
+Set GRUB_TIMEOUT=10 in /etc/default/grub and regenerate the active
+bootloader configuration so that its timeout is 10 seconds. Keep the normal
+default boot target; this task does not ask you to remain in emergency mode.

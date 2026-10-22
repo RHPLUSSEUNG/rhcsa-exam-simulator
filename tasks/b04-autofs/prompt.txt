@@ -1,0 +1,3 @@
+Use autofs to mount localhost:/shares/public at /data/public on access,
+read-write. Enable autofs at boot and keep it running. The NFS server is a
+preconfigured offline fixture; do not replace this task with a static fstab mount.

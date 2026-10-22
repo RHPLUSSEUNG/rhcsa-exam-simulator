@@ -1,0 +1,5 @@
+TASK_TITLE="Automount the public NFS share"
+TASK_DOMAIN="filesystems"
+TASK_POINTS=12
+TASK_RHEL="10"
+TASK_CROSSNODE=1
