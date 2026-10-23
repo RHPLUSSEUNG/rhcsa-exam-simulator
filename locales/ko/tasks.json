@@ -1711,9 +1711,9 @@
   },
   "b04-ntp": {
     "title": "지정 chrony 시간 원본 설정",
-    "prompt": "chrony가 iburst 옵션으로 ntp.example.com을 사용하도록 설정하고 chronyd를 활성화하여 실행하십시오.\n이 오프라인 실습은 ntp.example.com을 로컬 실습 자원으로 해석합니다. 채점은 지정 원본과\n서비스를 검사하며 인터넷 시간 동기화의 성공 여부를 요구하지 않습니다.\n",
-    "solution": "# 참고 풀이 — 지정 chrony 시간 원본 설정\n\n기본 pool을 그대로 두지 말고 지정 원본을 설정합니다. 실제 서버에 접근할 수 있을 때 iburst가 초기 샘플 수집을 빠르게 합니다.\n\n```bash\nsed -i -E '/^[[:space:]]*(server|pool)[[:space:]]/s/^/# /' /etc/chrony.conf\necho 'server ntp.example.com iburst' >>/etc/chrony.conf\nsystemctl enable --now chronyd\nsystemctl restart chronyd\n```\n\n## 확인\n\n```bash\ngrep -E \"^(server|pool)\" /etc/chrony.conf\nsystemctl is-enabled chronyd\nchronyc sources -v\n```\n",
-    "hint": "chrony.conf와 서비스의 활성화·실행 상태를 확인하십시오. 로컬 실습 원본 접근과 시간 동기화 완료는 서로 다른 상태입니다.\n"
+    "prompt": "chrony가 주석 처리되지 않은 유일한 server 또는 pool 원본으로 ntp.example.com을 iburst 옵션과 함께 사용하도록 설정하고 chronyd를 활성화하여 실행하십시오.\n이 오프라인 실습은 ntp.example.com을 로컬 실습 자원으로 해석합니다. 채점은 지정 원본과 서비스를 검사하며 인터넷 시간 동기화의 성공 여부를 요구하지 않습니다.\n",
+    "solution": "# 참고 풀이 — 지정 chrony 시간 원본 설정\n\n기본 server와 pool 행을 주석 처리한 뒤 지정 원본만 설정합니다. 실제 서버에 접근할 수 있을 때 iburst가 초기 샘플 수집을 빠르게 합니다.\n\n```bash\nsed -i -E '/^[[:space:]]*(server|pool)[[:space:]]/s/^/# /' /etc/chrony.conf\necho 'server ntp.example.com iburst' >>/etc/chrony.conf\nsystemctl enable --now chronyd\nsystemctl restart chronyd\n```\n\n## 확인\n\n```bash\ngrep -E \"^(server|pool)\" /etc/chrony.conf\nsystemctl is-enabled chronyd\nchronyc sources -v\n```\n",
+    "hint": "chrony.conf에서 주석 처리되지 않은 server/pool 원본이 하나뿐인지와 iburst 옵션을 확인하십시오. 서비스의 활성화·실행 상태도 별도로 확인합니다.\n"
   },
   "b04-autofs": {
     "title": "public NFS 공유 자동 마운트",
@@ -1766,8 +1766,8 @@
   "b04-flatpak-user": {
     "title": "사용자 범위 Flatpak 원격 저장소 및 앱 설정",
     "prompt": "student 사용자 범위에만 flatdb라는 Flatpak 원격 저장소를 추가하십시오.\nURL은 file:///opt/rhcsa-b04/flatpak/repo이며 com.example.CodiumPractice를 이 원본에서 설치하십시오.\n서명되지 않은 저장소이므로 --no-gpg-verify를 사용하십시오. 시스템 범위 flatdb 원격 저장소나\n이 앱의 시스템 전체 설치는 허용하지 않습니다. 제공 앱은 Codium 유형 실습을 위한 작은\n오프라인 모형이며 실제 VSCodium 편집기가 아닙니다.\n",
-    "solution": "# 참고 풀이 — 사용자 범위 Flatpak 원격 저장소 및 앱 설정\n\n원격 저장소 추가와 앱 설치 모두 student로 --user를 사용합니다. 시스템 전체 설치로 대체할 수 없습니다. 오프라인 모형으로 Flathub 접근 없이 범위와 원본을 검증합니다.\n\n```bash\nrunuser -u student -- env HOME=/home/student flatpak --user remote-add --if-not-exists --no-gpg-verify flatdb file:///opt/rhcsa-b04/flatpak/repo\nrunuser -u student -- env HOME=/home/student flatpak --user install -y flatdb com.example.CodiumPractice\n```\n\n## 확인\n\n```bash\nrunuser -u student -- env HOME=/home/student flatpak --user remotes\nrunuser -u student -- env HOME=/home/student flatpak --user list --app\n```\n",
-    "hint": "root로 --user를 실행하면 student가 아니라 root의 사용자 설치를 변경합니다. runuser 사용 시 올바른 HOME도 지정하십시오.\n"
+    "solution": "# 참고 풀이 — 사용자 범위 Flatpak 원격 저장소 및 앱 설정\n\n원격 저장소 추가와 앱 설치 모두 student로 --user를 사용합니다. 시스템 전체 설치로 대체할 수 없습니다. 오프라인 모형으로 Flathub 접근 없이 범위와 원본을 검증합니다.\n\n```bash\nhome=\"$(getent passwd student | cut -d: -f6)\"\nrunuser -u student -- env HOME=\"$home\" flatpak --user remote-add --if-not-exists --no-gpg-verify flatdb file:///opt/rhcsa-b04/flatpak/repo\nrunuser -u student -- env HOME=\"$home\" flatpak --user install -y flatdb com.example.CodiumPractice\n```\n\n## 확인\n\n```bash\nrunuser -u student -- env HOME=\"$home\" flatpak --user remotes\nrunuser -u student -- env HOME=\"$home\" flatpak --user list --app\n```\n",
+    "hint": "root로 --user를 실행하면 student가 아니라 root의 사용자 설치를 변경합니다. getent passwd로 student의 실제 HOME을 확인하여 runuser 환경에 지정하십시오.\n"
   },
   "b04-resize": {
     "title": "데이터를 유지하며 VG/VO 크기 변경",
@@ -1795,8 +1795,8 @@
   },
   "b04-rpm-url": {
     "title": "제공된 RPM URL에서 zsh 설치",
-    "prompt": "http://127.0.0.1:8274/zsh.rpm을 사용하여 zsh를 설치하십시오. 실습 환경은 연결된\nRHEL 10 DVD에서 찾은 RPM을 이 URL로 제공합니다. 제공된 실습용 서비스는 실행 상태로\n유지하십시오. 채점은 패키지 설치 상태를 확인하며 설치에 사용한 명령 자체는 판별하지 않습니다.\n",
-    "solution": "# 참고 풀이 — 제공된 RPM URL에서 zsh 설치\n\ndnf의 패키지 인자에 URL을 지정합니다. 로컬 HTTP 서버는 제공되는 실습 자원이며 응시자가 설정하는 80번 포트 httpd와 별개입니다. 의존 패키지는 DVD 저장소에서 해결합니다.\n\n```bash\ndnf -y install http://127.0.0.1:8274/zsh.rpm\n```\n\n## 확인\n\n```bash\nrpm -q zsh\nzsh --version\n```\n",
+    "prompt": "http://127.0.0.1:8274/zsh.rpm을 사용하여 zsh를 설치하십시오. 실습 환경은 연결된 RHEL 10 DVD 또는 정상 동작하는 DNF 저장소에서 확보한 RPM을 이 URL로 제공합니다. 제공된 실습용 서비스는 실행 상태로 유지하십시오. 채점은 패키지 설치 상태를 확인하며 설치에 사용한 명령 자체는 판별하지 않습니다.\n",
+    "solution": "# 참고 풀이 — 제공된 RPM URL에서 zsh 설치\n\ndnf의 패키지 인자에 URL을 지정합니다. 로컬 HTTP 서버는 제공되는 실습 자원이며 응시자가 설정하는 80번 포트 httpd와 별개입니다. 의존 패키지는 활성화된 DNF 저장소에서 해결합니다.\n\n```bash\ndnf -y install http://127.0.0.1:8274/zsh.rpm\n```\n\n## 확인\n\n```bash\nrpm -q zsh\nzsh --version\n```\n",
     "hint": "dnf install에 전체 URL을 전달한 다음 설치된 RPM을 조회하십시오.\n"
   }
 }

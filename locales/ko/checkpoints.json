@@ -560,6 +560,7 @@
   "notify.timer is enabled and active": "notify.timer가 활성화되어 실행 중임",
   "notify.timer schedules daily 07:00": "notify.timer가 매일 07:00에 예약됨",
   "ntp.example.com uses iburst": "ntp.example.com 소스에 iburst가 설정됨",
+  "ntp.example.com is the only source and uses iburst": "ntp.example.com만 시간 원본으로 설정되고 iburst 사용",
   "only tom is allowed in cron.allow": "cron.allow에서 tom만 허용됨",
   "output exactly matches literal grep": "출력이 리터럴 grep 결과와 정확히 일치함",
   "owned directory was copied with its path": "소유 디렉터리가 경로를 유지하여 복사됨",

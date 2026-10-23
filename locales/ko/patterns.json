@@ -25,6 +25,7 @@
   "Category practice (.+?) started — (\\d+) tasks, (\\d+) min\\.": "분야별 연습 \\1 시작 — \\2개 문제, \\3분.",
   "seeded (\\S+)": "환경 준비 완료: \\1",
   "setup issue: (\\S+)": "환경 준비 문제: \\1",
+  "(\\d+) additional disks present \\(multi-storage exams are supported\\)": "추가 디스크 \\1개가 있습니다(여러 저장소 문제가 있는 시험 지원)",
   "doctor: (\\d+) problem\\(s\\), (\\d+) warning\\(s\\) — fix the problems above before .start.": "doctor: 문제 \\1개, 경고 \\2개 — start 전에 위 문제를 해결하십시오",
   "doctor: ready, with (\\d+) warning\\(s\\) to review": "doctor: 준비됨, 검토할 경고 \\1개"
 }

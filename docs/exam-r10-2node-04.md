@@ -11,8 +11,10 @@
 
 ## 실행
 
-두 VM 모두 RHEL 10과 해당 버전의 **전체 설치 DVD**가 필요합니다. DVD에는 zsh RPM도
-있어야 합니다. Node2에는 OS 디스크 외에 **비어 있는 디스크 두 개**를 준비하십시오.
+두 VM 모두 RHEL 10과 정상 동작하는 DNF 패키지 원본이 필요합니다. 전체 설치 DVD를
+사용하는 경우 해당 버전의 BaseOS·AppStream과 zsh RPM이 있어야 합니다. 인터넷 또는
+subscription 저장소가 정상이라면 DVD 없이도 zsh 실습 자원을 준비할 수 있습니다.
+Node2에는 OS 디스크 외에 **비어 있는 디스크 두 개**를 준비하십시오.
 각각 1 GiB 이상을 권장합니다. 하나는 기존 LV 확대 실습용이고 다른 하나는 새 LVM과
 swap이 함께 사용합니다. 디스크 이름을 `/dev/vdb` 등으로 단정하지 마십시오.
 자동 배정 결과는 setup 출력 및 `/var/lib/rhcsa-sim/claims/`에서 확인할 수 있습니다.
@@ -69,8 +71,9 @@ sudo rhcsa-sim tui
 
 ## 실습에 맞춘 차이와 채점 한계
 
-- 저장소 주소는 원문의 RHEL 8/9 예시 대신 기존 오프라인 DVD 경로를 사용합니다.
-  zsh URL도 DVD에서 제공하는 로컬 HTTP 주소로 바꿉니다. zsh 채점은 설치 상태를
+- 저장소 주소는 원문의 RHEL 8/9 예시 대신 기존 로컬 저장소 경로를 사용합니다.
+  zsh URL은 DVD 또는 활성 DNF 저장소에서 확보한 RPM을 제공하는 로컬 HTTP 주소로
+  바꿉니다. zsh 채점은 설치 상태를
   확인하며 설치 명령의 URL 사용 이력까지 증명하지는 않습니다.
 - Flatpak은 인터넷 Flathub의 실제 Codium 대신 기존 오프라인 저장소 생성기가 만드는
   **`com.example.CodiumPractice` 실습용 앱**을 사용합니다. 실제 VSCodium 에디터가

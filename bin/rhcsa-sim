@@ -245,6 +245,12 @@ _controller_start() {
   # the channel so ssh closes as soon as `rhcsa-sim start` exits.
   if printf 'CONFIRM\n' | _peer_ssh "rhcsa-sim start $sel --role node2$( ((practice)) && printf ' --practice') >/tmp/rhcsa-node2-seed.log 2>&1" >/dev/null 2>&1; then
     ok "node2 seeded"
+    local remote_issues
+    remote_issues="$(_peer_ssh "grep -E 'setup failed for|task\\(s\\) had setup issues' /tmp/rhcsa-node2-seed.log" </dev/null 2>/dev/null || true)"
+    if [[ -n "$remote_issues" ]]; then
+      warn "node2 setup reported issues:"
+      printf '%s\n' "$remote_issues" | sed 's/^/  /' >&2
+    fi
     # Fetch node2's RENDERED prompts over the rhcsactl channel (NOT scp root@node2,
     # which no longer works once root SSH is disabled). sudo+tar lets rhcsactl read
     # root's prompts dir; without this, node2 tasks would show raw {{PLACEHOLDERS}}.
@@ -1690,8 +1696,18 @@ cmd_doctor() {
   fi
 
   # 8. spare disk for storage tasks (LVM/swap/partitions)
-  local nspare; nspare="$(lsblk -dnro NAME,TYPE 2>/dev/null | awk '$2=="disk" && $1!~/^(sr|loop|fd|zram)/{print $1}' | grep -vxF "$(_os_disks)" | wc -l)"
-  if [[ "${nspare:-0}" -ge 1 ]]; then _p "additional disks present (storage tasks can claim a spare)"; else _w "no spare disk detected — every disk holds part of the OS install. Add a BLANK extra virtual disk for LVM/swap/partition tasks (don't let the RHEL installer use it), or set RHCSA_ALLOW_LOOP=1 (not reboot-safe)"; fi
+  local nspare needs_two=0
+  nspare="$(lsblk -dnro NAME,TYPE 2>/dev/null | awk '$2=="disk" && $1!~/^(sr|loop|fd|zram)/{print $1}' | grep -vxF "$(_os_disks)" | wc -l)"
+  if node_configured; then load_node_conf; [[ "${NODE_ROLE:-}" == node2 ]] && needs_two=1; fi
+  if [[ "${nspare:-0}" -ge 2 ]]; then
+    _p "$nspare additional disks present (multi-storage exams are supported)"
+  elif [[ "${nspare:-0}" -eq 1 && "$needs_two" -eq 1 ]]; then
+    _w "only one additional disk is present — exam-r10-2node-04 requires two blank spare disks on node2"
+  elif [[ "${nspare:-0}" -eq 1 ]]; then
+    _p "one additional disk present (storage tasks can claim a spare)"
+  else
+    _w "no spare disk detected — every disk holds part of the OS install. Add a BLANK extra virtual disk for LVM/swap/partition tasks (don't let the RHEL installer use it), or set RHCSA_ALLOW_LOOP=1 (not reboot-safe)"
+  fi
 
   # 9. container runtime + python (sessions/TUI/report all need python3)
   if command -v podman >/dev/null 2>&1; then _p "podman present (container tasks)"; else _w "podman not installed — container tasks will fail"; fi

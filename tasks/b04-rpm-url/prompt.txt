@@ -1,4 +1,4 @@
 Install zsh using http://127.0.0.1:8274/zsh.rpm. The lab serves a matching
-RPM from the attached RHEL 10 DVD at this URL. Keep the provided fixture service
-running. Grading verifies the installed package; it cannot prove which command
-was used to install it.
+RPM from the attached RHEL 10 DVD or a working DNF repository at this URL. Keep
+the provided fixture service running. Grading verifies the installed package;
+it cannot prove which command was used to install it.
