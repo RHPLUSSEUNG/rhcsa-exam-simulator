@@ -48,6 +48,12 @@ class Exam04Tests(unittest.TestCase):
                 self.assertIn(text, translations, path.parent.name)
                 self.assertRegex(translations[text], "[가-힣]")
 
+    def test_rpm_url_fixture_is_ready_before_package_removal(self):
+        setup = (ROOT / "tasks/b04-rpm-url/setup.sh").read_text()
+        self.assertIn('dnf download --destdir="$RPM_DIR" zsh', setup)
+        self.assertIn("/var/cache/dnf", setup)
+        self.assertLess(setup.index('[[ -s "$RPM_FILE" ]]'), setup.index("dnf -y remove zsh"))
+
     def test_sudo_effective_command_and_password_tags(self):
         sudo = helper("b04-users")
         good = "    (ALL) /usr/sbin/useradd\n    (ALL : ALL) NOPASSWD: /usr/bin/passwd, /usr/bin/dnf"
