@@ -160,12 +160,15 @@ ensure_shared_disk() {
 # /dev/vdb1 = existing VG, vdb2 = new LVM, vdb3 = swap. Idempotent: an existing
 # first partition is reused. Prints the partition device.
 seed_partition() {   # seed_partition <group> <size, e.g. 400M>
-  local group="$1" size="$2" d p
+  local group="$1" size="$2" d p label=dos
+  # RHCSA 10 partitions GPT disks only; the RHEL 9 papers' answer keys use MBR.
+  [[ "${RHCSA_RHEL:-9}" == 10 ]] && label=gpt
   d="$(ensure_shared_disk "$group")" || return 1
   _first_part() { lsblk -lnpo NAME,TYPE "$1" 2>/dev/null | awk '$2=="part"{print $1; exit}'; }
   p="$(_first_part "$d")"
   if [[ -z "$p" ]]; then
-    printf 'label: dos\n,%s,8e\n' "$size" | sfdisk -q -W always "$d" >/dev/null 2>&1 || return 1
+    # V = Linux LVM in sfdisk's label-independent type shortcuts (8e on MBR).
+    printf 'label: %s\n,%s,V\n' "$label" "$size" | sfdisk -q -W always "$d" >/dev/null 2>&1 || return 1
     partprobe "$d" >/dev/null 2>&1; udevadm settle 2>/dev/null
     p="$(_first_part "$d")"
   fi
