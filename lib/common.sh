@@ -292,7 +292,7 @@ compose_domain() {
   ordered="$( { comm -23 <(printf '%s\n' "${cands[@]}" | sort) <(sort "$recent" 2>/dev/null) | shuf
                 comm -12 <(printf '%s\n' "${cands[@]}" | sort) <(sort "$recent" 2>/dev/null) | shuf; } )"
 
-  local out=() grp; declare -A grpused diskused
+  local out=() grp; declare -A grpused=() diskused=()
   while read -r t; do
     [[ -z "$t" ]] && continue
     grp="$(_task_conflict_group "$t")"
@@ -872,7 +872,7 @@ compose_weak() {        # compose_weak [count]
     [[ -z "$(lsblk -rno MOUNTPOINT "/dev/$_d" 2>/dev/null | tr -d '[:space:]')" ]] || continue  # mounted
     ((ndisk++))
   done < <(lsblk -dnro NAME,TYPE 2>/dev/null | awk '$2=="disk"{print $1}')
-  local out=() grp; declare -A grpused diskused
+  local out=() grp; declare -A grpused=() diskused=()
   while read -r t; do
     [[ -z "$t" ]] && continue
     task_exists "$t" || continue
