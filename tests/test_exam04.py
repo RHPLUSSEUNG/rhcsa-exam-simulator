@@ -1,8 +1,11 @@
 """Read-only contracts and positive/negative fixtures for exam 04 graders."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
+import runpy
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -152,6 +155,26 @@ class Exam04Tests(unittest.TestCase):
         self.assertFalse(swap.persistent("UUID=old none swap defaults 0 0", {"/dev/vdb3"}, resolver))
         self.assertFalse(swap.persistent("# UUID=new none swap defaults 0 0", {"/dev/vdb3"}, resolver))
         self.assertFalse(swap.persistent("UUID=new /mnt/data ext4 defaults 0 0", {"/dev/vdb3"}, resolver))
+
+    def test_swap_runtime_reads_only_device_names(self):
+        # On RHEL 10, bare --show plus --output NAME still prints all columns.
+        tree = {"blockdevices": [{"name": "/dev/sdb3", "type": "part", "size": 400 * 2**20}]}
+        def output(args, **kwargs):
+            if args[0] == "lsblk":
+                return json.dumps(tree)
+            if args[0] == "swapon":
+                return "/dev/sdb3\n" if "--show=NAME" in args else "/dev/sdb3 partition 400M 0B -3 uuid\n"
+            self.fail(args)
+        with tempfile.TemporaryDirectory() as directory:
+            claims = Path(directory) / "claims"
+            claims.mkdir()
+            (claims / "shared-b04storage.dev").write_text("/dev/sdb\n")
+            with patch.dict(os.environ, RHCSA_STATE=directory), \
+                 patch("subprocess.check_output", side_effect=output), \
+                 patch("sys.argv", ["verify.py", "runtime"]):
+                with self.assertRaises(SystemExit) as result:
+                    runpy.run_path(str(ROOT / "tasks/b04-swap/verify.py"), run_name="__main__")
+                self.assertEqual(result.exception.code, 0)
 
     def test_timer_service_and_actual_script_commands(self):
         timer = helper("b04-notify")

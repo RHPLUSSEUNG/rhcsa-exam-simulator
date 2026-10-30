@@ -42,7 +42,7 @@ b04_release_if_unused() {
         if pvs --noheadings -o vg_name "$part" 2>/dev/null | grep -q '[^[:space:]]'; then
             return 0
         fi
-        if swapon --show --noheadings --raw --output NAME | grep -Fxq "$part"; then
+        if swapon --show=NAME --noheadings --raw | grep -Fxq "$part"; then
             return 0
         fi
         findmnt -rn -S "$part" >/dev/null 2>&1 && return 0
