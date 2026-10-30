@@ -1,6 +1,7 @@
 # Reference solution — Resize VG/VO without losing data
 
 230M is an absolute target; +230M adds that much to the current size. -r grows ext4 together with the LV. The accepted tolerance accounts for extent rounding.
+The seeded VG already occupies the first partition of the shared disk; no repartitioning is needed for this task.
 
 ```bash
 lvextend -r -L 230M /dev/VG/VO

@@ -1,4 +1,5 @@
 The ext4 logical volume VG/VO is mounted at /mnt/b04-vo and contains data.
 Resize BOTH the LV and filesystem to 230 MiB; 217 through 243 MiB is accepted.
 Keep the existing data intact and the persistent mount usable. This task uses
-its own spare disk, separate from the disk shared by wgroup and the new swap.
+the existing first partition of the disk shared by wgroup and the new swap.
+Do not destroy the other storage tasks' partitions.

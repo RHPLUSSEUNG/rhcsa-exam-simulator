@@ -205,7 +205,7 @@ sudo rhcsa-sim grade --reboot        # reboots + grades both, prints one combine
 
 `exam-r10-2node-04`는 [Choo’s blog](https://www.chooblog.xyz/blog/rhcsa)의 문제 유형과
 추가 예제를 24문제로 구성합니다. 기존 형식의 한국어/영어 문제·힌트·참고 풀이와
-자동 채점을 제공합니다. **Node2에는 비어 있는 추가 디스크 두 개가 필요합니다.**
+자동 채점을 제공합니다. **Node2에는 2 GiB 이상의 비어 있는 추가 디스크 한 개가 필요합니다.**
 실제 Codium 대신 오프라인 Flatpak 실습 앱을 사용하는 등 환경 차이는
 [문제 대응표와 실행 안내](docs/exam-r10-2node-04.md)를 확인하십시오.
 

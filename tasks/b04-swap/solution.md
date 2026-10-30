@@ -7,7 +7,7 @@ lsblk
 fdisk /dev/vdb  # Substitute the actual shared spare disk.
 # n: add the NEXT free partition with size +400M; t: Linux swap; w: save.
 # Never replace a partition table that contains the wgroup PV.
-part=/dev/vdb2  # Substitute the newly created partition identified with lsblk.
+part=/dev/vdb3  # Substitute the newly created partition identified with lsblk.
 mkswap "$part"
 uuid="$(blkid -s UUID -o value "$part")"
 echo "UUID=$uuid none swap defaults 0 0" >>/etc/fstab

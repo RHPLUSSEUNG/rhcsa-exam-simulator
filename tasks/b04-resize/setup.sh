@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -e
 . "$RHCSA_LIB/storage-prep.sh"
-dev="$(ensure_spare_disk)"
+dev="$(seed_partition b04storage 400M)" || {
+  echo 'b04-resize requires an unused spare disk on node2' >&2
+  exit 1
+}
 if ! vgs VG >/dev/null 2>&1; then
   pvcreate "$dev"
   vgcreate VG "$dev"
@@ -20,5 +23,5 @@ if [[ ! -f "$RHCSA_STATE/b04-resize.sha256" ]]; then
   printf 'retain this existing volume content\n' >/mnt/b04-vo/important.txt
   sha256sum /mnt/b04-vo/important.txt >"$RHCSA_STATE/b04-resize.sha256"
 fi
-echo 'b04-resize: seeded an existing 200 MiB ext4 LV'
+echo 'b04-resize: seeded an existing 200 MiB ext4 LV on the shared storage disk'
 exit 0

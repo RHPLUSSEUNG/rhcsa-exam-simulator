@@ -74,7 +74,9 @@ class Exam04Tests(unittest.TestCase):
         ntp = (ROOT / "tasks/b04-ntp/setup.sh").read_text()
         self.assertIn("ntp\\.example\\.com", ntp)
         cli = (ROOT / "bin/rhcsa-sim").read_text(encoding="utf-8")
-        self.assertIn("exam-r10-2node-04 requires two blank spare disks on node2", cli)
+        resize = (ROOT / "tasks/b04-resize/setup.sh").read_text()
+        self.assertIn("seed_partition b04storage 400M", resize)
+        self.assertNotIn("ensure_spare_disk", resize)
         self.assertIn("node2 setup reported issues:", cli)
 
     def test_ntp_requires_only_the_requested_source(self):
@@ -140,15 +142,16 @@ class Exam04Tests(unittest.TestCase):
 
     def test_swap_partition_size_and_persistence_identity(self):
         swap = helper("b04-swap")
-        nodes = [{"name": "/dev/vdb", "type": "disk", "size": 2**30, "children": [
-            {"name": "/dev/vdb1", "type": "part", "size": 480 * 2**20},
-            {"name": "/dev/vdb2", "type": "part", "size": 400 * 2**20}]}]
-        self.assertEqual(list(swap.partitions(nodes)), ["/dev/vdb2"])
-        resolver = lambda value: {"UUID=new": "/dev/vdb2", "UUID=old": "/dev/vda2"}.get(value, value)
-        self.assertTrue(swap.persistent("UUID=new none swap defaults 0 0", {"/dev/vdb2"}, resolver))
-        self.assertFalse(swap.persistent("UUID=old none swap defaults 0 0", {"/dev/vdb2"}, resolver))
-        self.assertFalse(swap.persistent("# UUID=new none swap defaults 0 0", {"/dev/vdb2"}, resolver))
-        self.assertFalse(swap.persistent("UUID=new /mnt/data ext4 defaults 0 0", {"/dev/vdb2"}, resolver))
+        nodes = [{"name": "/dev/vdb", "type": "disk", "size": 2 * 2**30, "children": [
+            {"name": "/dev/vdb1", "type": "part", "size": 400 * 2**20},
+            {"name": "/dev/vdb2", "type": "part", "size": 480 * 2**20},
+            {"name": "/dev/vdb3", "type": "part", "size": 400 * 2**20}]}]
+        self.assertEqual(list(swap.partitions(nodes)), ["/dev/vdb1", "/dev/vdb3"])
+        resolver = lambda value: {"UUID=new": "/dev/vdb3", "UUID=old": "/dev/vda2"}.get(value, value)
+        self.assertTrue(swap.persistent("UUID=new none swap defaults 0 0", {"/dev/vdb3"}, resolver))
+        self.assertFalse(swap.persistent("UUID=old none swap defaults 0 0", {"/dev/vdb3"}, resolver))
+        self.assertFalse(swap.persistent("# UUID=new none swap defaults 0 0", {"/dev/vdb3"}, resolver))
+        self.assertFalse(swap.persistent("UUID=new /mnt/data ext4 defaults 0 0", {"/dev/vdb3"}, resolver))
 
     def test_timer_service_and_actual_script_commands(self):
         timer = helper("b04-notify")
