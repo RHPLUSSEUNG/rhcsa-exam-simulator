@@ -39,7 +39,7 @@ if __name__ == "__main__":
     tree = json.loads(run("lsblk", "-b", "-J", "-p", "-o", "NAME,TYPE,SIZE", disk))
     candidates = {os.path.realpath(x) for x in partitions(tree["blockdevices"])}
     active = candidates & {os.path.realpath(x) for x in run(
-        "swapon", "--show", "--noheadings", "--raw", "--output", "NAME").splitlines()}
+        "swapon", "--show=NAME", "--noheadings", "--raw").splitlines()}
     ok = bool(active)
     if sys.argv[1] == "persistent":
         ok = ok and persistent(Path("/etc/fstab").read_text(), active, resolve)
