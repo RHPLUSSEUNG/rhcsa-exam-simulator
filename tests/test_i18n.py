@@ -58,6 +58,14 @@ class LocalizationTests(unittest.TestCase):
             original = (ROOT / 'tasks' / tid / 'solution.md').read_text(encoding='utf-8')
             self.assertEqual(re.findall(r'```.*?```', original, re.S),
                              re.findall(r'```.*?```', e['solution'], re.S), tid)
+            for release in ('9', '10'):
+                variant = ROOT / 'tasks' / tid / f'solution.rhel{release}.md'
+                if variant.is_file():
+                    key = f'solution.rhel{release}'
+                    self.assertIn(key, e, (tid, key))
+                    self.assertRegex(e[key], '[가-힣]', (tid, key))
+                    self.assertEqual(re.findall(r'```.*?```', variant.read_text(encoding='utf-8'), re.S),
+                                     re.findall(r'```.*?```', e[key], re.S), (tid, key))
 
     def test_prompt_placeholders_numbers_paths_and_literals(self):
         failures = []

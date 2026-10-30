@@ -1,6 +1,8 @@
 {
   "Time's up": "시간 종료",
   "Time remaining: ": "남은 시간: ",
+  "Practice (untimed) · ": "연습(시간 제한 없음) · ",
+  " elapsed": " 경과",
   "Loading ...": "불러오는 중...",
   "Checking ...": "확인하는 중...",
   ">Close</button>": ">닫기</button>",

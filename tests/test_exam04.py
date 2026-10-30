@@ -24,6 +24,9 @@ class Exam04Tests(unittest.TestCase):
         self.assertEqual(len({task for node, task in rows}), 24)
         self.assertEqual(sum(node == "node1" for node, task in rows), 14)
         self.assertEqual(sum(node == "node2" for node, task in rows), 10)
+        self.assertEqual(sum(int(re.search(r"TASK_POINTS=(\d+)",
+                                           (ROOT / "tasks" / task / "meta.sh").read_text())[1])
+                             for node, task in rows), 300)
         tasks = {task for node, task in rows if task.startswith("b04-")}
         self.assertEqual(tasks, {p.name for p in (ROOT / "tasks").glob("b04-*")})
         self.assertEqual(len(tasks), 19)
@@ -47,6 +50,42 @@ class Exam04Tests(unittest.TestCase):
             for text in re.findall(r'^ckpt(?:_expr)? "([^"\n]+)"', path.read_text(), re.M):
                 self.assertIn(text, translations, path.parent.name)
                 self.assertRegex(translations[text], "[가-힣]")
+
+    def test_rpm_url_fixture_is_ready_before_package_removal(self):
+        setup = (ROOT / "tasks/b04-rpm-url/setup.sh").read_text()
+        self.assertIn('dnf download --destdir="$RPM_DIR" zsh', setup)
+        self.assertIn("/var/cache/dnf", setup)
+        self.assertLess(setup.index('[[ -s "$RPM_FILE" ]]'), setup.index("dnf -y remove zsh"))
+
+    def test_exam_environment_prerequisites_are_seeded_safely(self):
+        notify = (ROOT / "tasks/b04-notify/setup.sh").read_text()
+        self.assertLess(notify.index("dnf -y install cronie"), notify.index("crontab -u root"))
+        flatpak = (ROOT / "tasks/b04-flatpak-user/setup.sh").read_text()
+        self.assertIn("useradd -m student", flatpak)
+        self.assertIn("b04-flatpak-user.student-created", flatpak)
+        tuned = (ROOT / "tasks/tuning-profile/setup.sh").read_text()
+        self.assertIn("tuned-adm off", tuned)
+        self.assertNotIn("profile balanced", tuned)
+        grub = (ROOT / "tasks/b04-grub-timeout/setup.sh").read_text()
+        self.assertIn("GRUB_TIMEOUT=5", grub)
+        accounts = (ROOT / "tasks/b04-accounts/setup.sh").read_text()
+        self.assertIn("usermod -s /sbin/nologin sam", accounts)
+        self.assertIn("chage -E -1 sam", accounts)
+        ntp = (ROOT / "tasks/b04-ntp/setup.sh").read_text()
+        self.assertIn("ntp\\.example\\.com", ntp)
+        cli = (ROOT / "bin/rhcsa-sim").read_text(encoding="utf-8")
+        resize = (ROOT / "tasks/b04-resize/setup.sh").read_text()
+        self.assertIn("seed_partition b04storage 400M", resize)
+        self.assertNotIn("ensure_spare_disk", resize)
+        self.assertIn("node2 setup reported issues:", cli)
+
+    def test_ntp_requires_only_the_requested_source(self):
+        ntp = helper("b04-ntp")
+        good = "# pool 2.rhel.pool.ntp.org iburst\nserver ntp.example.com iburst\n"
+        self.assertTrue(ntp.valid(good))
+        self.assertFalse(ntp.valid("server ntp.example.com\n"))
+        self.assertFalse(ntp.valid(good + "pool 2.rhel.pool.ntp.org iburst\n"))
+        self.assertFalse(ntp.valid("server other.example.com iburst\n"))
 
     def test_sudo_effective_command_and_password_tags(self):
         sudo = helper("b04-users")
@@ -103,15 +142,16 @@ class Exam04Tests(unittest.TestCase):
 
     def test_swap_partition_size_and_persistence_identity(self):
         swap = helper("b04-swap")
-        nodes = [{"name": "/dev/vdb", "type": "disk", "size": 2**30, "children": [
-            {"name": "/dev/vdb1", "type": "part", "size": 480 * 2**20},
-            {"name": "/dev/vdb2", "type": "part", "size": 400 * 2**20}]}]
-        self.assertEqual(list(swap.partitions(nodes)), ["/dev/vdb2"])
-        resolver = lambda value: {"UUID=new": "/dev/vdb2", "UUID=old": "/dev/vda2"}.get(value, value)
-        self.assertTrue(swap.persistent("UUID=new none swap defaults 0 0", {"/dev/vdb2"}, resolver))
-        self.assertFalse(swap.persistent("UUID=old none swap defaults 0 0", {"/dev/vdb2"}, resolver))
-        self.assertFalse(swap.persistent("# UUID=new none swap defaults 0 0", {"/dev/vdb2"}, resolver))
-        self.assertFalse(swap.persistent("UUID=new /mnt/data ext4 defaults 0 0", {"/dev/vdb2"}, resolver))
+        nodes = [{"name": "/dev/vdb", "type": "disk", "size": 2 * 2**30, "children": [
+            {"name": "/dev/vdb1", "type": "part", "size": 400 * 2**20},
+            {"name": "/dev/vdb2", "type": "part", "size": 480 * 2**20},
+            {"name": "/dev/vdb3", "type": "part", "size": 400 * 2**20}]}]
+        self.assertEqual(list(swap.partitions(nodes)), ["/dev/vdb1", "/dev/vdb3"])
+        resolver = lambda value: {"UUID=new": "/dev/vdb3", "UUID=old": "/dev/vda2"}.get(value, value)
+        self.assertTrue(swap.persistent("UUID=new none swap defaults 0 0", {"/dev/vdb3"}, resolver))
+        self.assertFalse(swap.persistent("UUID=old none swap defaults 0 0", {"/dev/vdb3"}, resolver))
+        self.assertFalse(swap.persistent("# UUID=new none swap defaults 0 0", {"/dev/vdb3"}, resolver))
+        self.assertFalse(swap.persistent("UUID=new /mnt/data ext4 defaults 0 0", {"/dev/vdb3"}, resolver))
 
     def test_timer_service_and_actual_script_commands(self):
         timer = helper("b04-notify")

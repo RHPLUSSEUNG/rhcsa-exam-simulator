@@ -1,3 +1,4 @@
-Configure chrony to use ntp.example.com with iburst. Enable and run chronyd.
+Configure chrony to use ntp.example.com with iburst as its only uncommented
+server or pool source. Enable and run chronyd.
 This offline lab maps ntp.example.com to a local fixture. Grading checks the
 configured source and service, not successful Internet time synchronization.

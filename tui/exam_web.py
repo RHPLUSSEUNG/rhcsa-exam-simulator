@@ -331,12 +331,16 @@ var END=%d, NOW0=%d, T0=Date.now()/1000;
 function fmt(s){ if(s<=0) return "Time's up"; s=Math.floor(s);
   var h=Math.floor(s/3600), m=Math.floor((s%%3600)/60), sec=s%%60, p=function(n){return(n<10?'0':'')+n;};
   return (s<300)? (m+':'+p(sec)) : (h+':'+p(m)); }
-function tick(){ var rem=END-NOW0-(Date.now()/1000-T0); var el=document.getElementById('timer');
-  if(!el) return; el.textContent='Time remaining: '+fmt(rem); el.className=(rem<300)?'timer low':'timer'; }
+var UNTIMED=%s, START=%d;
+function tick(){ var el=document.getElementById('timer'); if(!el) return;
+  if(UNTIMED){ var e=Math.max(0,Math.floor(NOW0-START+(Date.now()/1000-T0))), h=Math.floor(e/3600), m=Math.floor((e%%3600)/60);
+    el.textContent='Practice (untimed) · '+h+':'+(m<10?'0':'')+m+' elapsed'; el.className='timer'; return; }
+  var rem=END-NOW0-(Date.now()/1000-T0);
+  el.textContent='Time remaining: '+fmt(rem); el.className=(rem<300)?'timer low':'timer'; }
 setInterval(tick,1000); tick();
 function postMark(id,st){ fetch('/api/mark',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
   body:'id='+encodeURIComponent(id)+'&state='+st}); }
-</script>""" % ((start + dur), int(time.time()))
+</script>""" % ((start + dur), int(time.time()), "true" if dur <= 0 else "false", start)
 
 
 def page(title, sess, body):
@@ -625,6 +629,10 @@ function gradeReboot(){ if(!confirm('This reboots %s and grades after boot.\\nTh
 
 
 # --------------------------------------------------------------------- handler
+# A task id or a paper number — never an option ("--yes") or a path.
+TASK_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*\Z")
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -676,6 +684,14 @@ class H(BaseHTTPRequestHandler):
         return urllib.parse.parse_qs(self.rfile.read(n).decode("utf-8")) if n else {}
 
     def do_POST(self):
+        # The actions below run the CLI as root, so only this machine's own page may
+        # call them: the Host must be loopback (defeats DNS rebinding) and a browser
+        # Origin, if sent, must be this server (defeats CSRF from any other site).
+        hosthdr = self.headers.get("Host") or ""
+        origin = self.headers.get("Origin")
+        if hosthdr.rsplit(":", 1)[0].strip("[]") not in ("127.0.0.1", "localhost", "::1") or \
+                (origin and urllib.parse.urlparse(origin).netloc != hosthdr):
+            self._send("forbidden", "text/plain", 403); return
         u = urllib.parse.urlparse(self.path)
         f = self._body()
         one = lambda k: f.get(k, [""])[0]
@@ -700,12 +716,16 @@ class H(BaseHTTPRequestHandler):
             if not is_practice():
                 self._send("(self-check is a practice aid — exams are graded only with "
                            "'rhcsa-sim grade')", "text/plain"); return
+            if not TASK_ID.match(one("id")):
+                self._send("bad task id", "text/plain", 400); return
             out, _ = run_cli(["check", one("id")])
             self._send(out or "(no output)", "text/plain")
         elif u.path == "/api/aid":
             if not is_practice():
                 self._send("(aids are practice-only)", "text/plain"); return
             kind = one("kind"); tid = one("id")
+            if kind not in ("hint", "solution") or not TASK_ID.match(tid):
+                self._send("bad request", "text/plain", 400); return
             if kind == "solution":
                 self._send(solution_html(tid), "text/html"); return
             txt = aid_file(kind, tid)

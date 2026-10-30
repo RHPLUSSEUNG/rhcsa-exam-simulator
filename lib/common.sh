@@ -19,7 +19,7 @@ RHCSA_SESSION="$RHCSA_STATE/session.json"
 # exams, install) sees the same answer with no user decision. Anything that is not
 # RHEL 10 falls back to 9 — that covers 9.3/9.4/9.x and RHEL-likes. Override for
 # authoring/testing:  RHCSA_RHEL=10 rhcsa-sim ...
-: "${RHCSA_RHEL:=$( . /etc/os-release 2>/dev/null; case "${VERSION_ID%%.*}" in 10) echo 10;; *) echo 9;; esac )}"
+: "${RHCSA_RHEL:=$( . /etc/os-release 2>/dev/null; case "${VERSION_ID:-}" in 10|10.*) echo 10;; *) echo 9;; esac )}"
 export RHCSA_RHEL
 
 # ---- Colours / output ------------------------------------------------------
@@ -170,9 +170,20 @@ exam_rhel_ok() {
 [[ -r "$RHCSA_LIB/nodes.sh" ]] && . "$RHCSA_LIB/nodes.sh"
 
 # Tasks whose setup consumes the single spare disk (mutually exclusive in one exam).
-spare_disk_tasks() {
-  grep -lE 'ensure_spare_disk' "$RHCSA_TASKS"/*/setup.sh 2>/dev/null \
+spare_disk_tasks() {   # every task that needs a spare disk — its own, or one shared with a group
+  grep -lE 'ensure_spare_disk|ensure_shared_disk|seed_partition' "$RHCSA_TASKS"/*/setup.sh 2>/dev/null \
     | xargs -r -n1 dirname | xargs -r -n1 basename
+}
+
+# The disk a task consumes: "shared:<group>" when several tasks share one disk
+# (ensure_shared_disk / seed_partition <group>), the task id for a whole-disk
+# claim, empty for no disk. The composers count DISTINCT keys against the bare
+# disks available — counting only whole-disk claims let a 1-disk 'practice
+# storage' seed three shared groups that could never get a disk.
+_disk_key() {
+  local f g; f="$(task_dir "$1")/setup.sh"
+  g="$(grep -oE '(ensure_shared_disk|seed_partition) [A-Za-z0-9_]+' "$f" 2>/dev/null | awk '{print $2; exit}')"
+  if [[ -n "$g" ]]; then echo "shared:$g"; elif grep -q 'ensure_spare_disk' "$f" 2>/dev/null; then echo "$1"; fi
 }
 
 # Compose a random exam: one task per domain (+ extras up to a target size),
@@ -244,8 +255,7 @@ compose_two_node() {
 # every seeded task can actually claim a disk (and therefore grade correctly) —
 # important for the storage category, where every task wants its own disk.
 compose_domain() {
-  local dom="$1" count="${2:-25}" t sd used_spare=0 rootdisk ndisk
-  sd="$(spare_disk_tasks)"; _is_spare() { grep -qx "$1" <<<"$sd"; }
+  local dom="$1" count="${2:-25}" t k rootdisk ndisk
   # Count truly-bare spare disks exactly the way ensure_spare_disk picks them:
   # a whole disk with NO partitions/children and not mounted. This also excludes
   # the system disk even on LVM installs, where the old PKNAME-of-/ detection
@@ -282,12 +292,13 @@ compose_domain() {
   ordered="$( { comm -23 <(printf '%s\n' "${cands[@]}" | sort) <(sort "$recent" 2>/dev/null) | shuf
                 comm -12 <(printf '%s\n' "${cands[@]}" | sort) <(sort "$recent" 2>/dev/null) | shuf; } )"
 
-  local out=() grp; declare -A grpused
+  local out=() grp; declare -A grpused=() diskused=()
   while read -r t; do
     [[ -z "$t" ]] && continue
     grp="$(_task_conflict_group "$t")"
     [[ -n "$grp" && -n "${grpused[$grp]:-}" ]] && continue   # one task per conflict group
-    if _is_spare "$t"; then (( used_spare >= ndisk )) && continue; ((used_spare++)); fi
+    k="$(_disk_key "$t")"
+    if [[ -n "$k" && -z "${diskused[$k]:-}" ]]; then (( ${#diskused[@]} >= ndisk )) && continue; diskused[$k]=1; fi
     out+=("$t"); [[ -n "$grp" ]] && grpused[$grp]=1
     (( ${#out[@]} >= eff )) && break
   done <<< "$ordered"
@@ -847,8 +858,7 @@ for _,t in passed: print(t)
 '
 }
 compose_weak() {        # compose_weak [count]
-  local count="${1:-${RHCSA_PRACTICE_SIZE:-20}}" t sd used_spare=0 rootdisk ndisk
-  sd="$(spare_disk_tasks)"; _is_spare() { grep -qx "$1" <<<"$sd"; }
+  local count="${1:-${RHCSA_PRACTICE_SIZE:-20}}" t k rootdisk ndisk
   # Count truly-bare spare disks exactly the way ensure_spare_disk picks them:
   # a whole disk with NO partitions/children and not mounted. This also excludes
   # the system disk even on LVM installs, where the old PKNAME-of-/ detection
@@ -862,13 +872,14 @@ compose_weak() {        # compose_weak [count]
     [[ -z "$(lsblk -rno MOUNTPOINT "/dev/$_d" 2>/dev/null | tr -d '[:space:]')" ]] || continue  # mounted
     ((ndisk++))
   done < <(lsblk -dnro NAME,TYPE 2>/dev/null | awk '$2=="disk"{print $1}')
-  local out=() grp; declare -A grpused
+  local out=() grp; declare -A grpused=() diskused=()
   while read -r t; do
     [[ -z "$t" ]] && continue
     task_exists "$t" || continue
     grp="$(_task_conflict_group "$t")"
     [[ -n "$grp" && -n "${grpused[$grp]:-}" ]] && continue
-    if _is_spare "$t"; then (( used_spare >= ndisk )) && continue; ((used_spare++)); fi
+    k="$(_disk_key "$t")"
+    if [[ -n "$k" && -z "${diskused[$k]:-}" ]]; then (( ${#diskused[@]} >= ndisk )) && continue; diskused[$k]=1; fi
     out+=("$t"); [[ -n "$grp" ]] && grpused[$grp]=1
     (( ${#out[@]} >= count )) && break
   done < <(_weak_candidates "$RHCSA_STATE/history.jsonl")

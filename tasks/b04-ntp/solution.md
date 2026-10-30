@@ -1,6 +1,6 @@
 # Reference solution — Configure a specific chrony time source
 
-Configure the requested source rather than blindly accepting a default pool. iburst accelerates initial samples when a real server is reachable.
+Comment out the default server and pool lines, then configure the requested source. iburst accelerates initial samples when a real server is reachable.
 
 ```bash
 sed -i -E '/^[[:space:]]*(server|pool)[[:space:]]/s/^/# /' /etc/chrony.conf

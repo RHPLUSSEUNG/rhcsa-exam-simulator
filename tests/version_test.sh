@@ -27,7 +27,7 @@ echo "== detection =="
 ck "explicit override honoured" "$(RHCSA_RHEL=10 bash -c '. '"$T"'/lib/common.sh 2>/dev/null; echo $RHCSA_RHEL')" "10"
 ck "non-RHEL host falls back to 9" \
    "$(RHCSA_RHEL= bash -c 'unset RHCSA_RHEL; . '"$T"'/lib/common.sh 2>/dev/null; echo $RHCSA_RHEL')" \
-   "$( . /etc/os-release 2>/dev/null; case "${VERSION_ID%%.*}" in 10) echo 10;; *) echo 9;; esac)"
+   "$( . /etc/os-release 2>/dev/null; case "${VERSION_ID:-}" in 10|10.*) echo 10;; *) echo 9;; esac)"
 
 echo "== TASK_RHEL filter (untagged must stay visible on BOTH: protects the existing set) =="
 v9="$(vis 9)"; v10="$(vis 10)"
